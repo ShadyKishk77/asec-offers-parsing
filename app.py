@@ -212,6 +212,26 @@ if "extraction_done" not in st.session_state:
 with st.sidebar:
     st.markdown("## ASEC Document Intelligence")
     st.markdown("---")
+    
+    # Connection Diagnostics
+    st.markdown("### Connection Diagnostics")
+    from src.llm_client import _OLLAMA_HOST, _MODEL_NAME
+    st.caption(f"**Target Host:** `{_OLLAMA_HOST}`")
+    st.caption(f"**Target Model:** `{_MODEL_NAME}`")
+    
+    if st.button("Test Connection"):
+        try:
+            import httpx
+            # Try to ping the Ollama server base URL
+            res = httpx.get(_OLLAMA_HOST, timeout=5.0)
+            if res.status_code == 200 or "Ollama is running" in res.text:
+                st.success("Ollama is reachable!")
+            else:
+                st.error(f"Ollama returned status: {res.status_code}")
+        except Exception as err:
+            st.error(f"Failed to connect: {err}")
+            
+    st.markdown("---")
     st.markdown("### Capabilities")
     st.markdown("- AI-powered data extraction")
     st.markdown("- Scanned document support")

@@ -43,8 +43,18 @@ logger = logging.getLogger(__name__)
 # Ollama client configuration
 # ---------------------------------------------------------------------------
 
-_OLLAMA_HOST  = os.getenv("OLLAMA_HOST", "http://localhost:11434")
-_MODEL_NAME   = os.getenv("OLLAMA_MODEL", "llama3.1-gpu")
+_OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+_MODEL_NAME  = os.getenv("OLLAMA_MODEL", "llama3.1-gpu")
+
+# Fallback check for Streamlit secrets if running inside Streamlit Cloud
+try:
+    import streamlit as st
+    if "OLLAMA_HOST" in st.secrets:
+        _OLLAMA_HOST = st.secrets["OLLAMA_HOST"]
+    if "OLLAMA_MODEL" in st.secrets:
+        _MODEL_NAME = st.secrets["OLLAMA_MODEL"]
+except Exception:
+    pass
 
 _client = ollama.Client(host=_OLLAMA_HOST)
 
