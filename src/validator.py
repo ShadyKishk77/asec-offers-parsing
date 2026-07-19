@@ -140,20 +140,21 @@ def validate_and_enrich(
         corrected_quantity = item.quantity
         extra_issues = []
         if item.total_amount is not None and item.total_amount > 0 and item.price > 0:
-            expected_total = item.price * item.quantity
-            if abs(expected_total - item.total_amount) > RECONCILIATION_TOLERANCE:
-                ratio = item.total_amount / item.price
+            expected_total_post_tax = (item.price * item.quantity) + (item.tax or 0.0)
+            if abs(expected_total_post_tax - item.total_amount) > RECONCILIATION_TOLERANCE:
+                pre_tax_total_stated = item.total_amount - (item.tax or 0.0)
+                ratio = pre_tax_total_stated / item.price
                 nearest_int = round(ratio)
                 if nearest_int > 0 and abs(ratio - nearest_int) <= 0.05:
                     logger.info(
                         "[Correction] Auto-corrected quantity from %s to %s in '%s' "
-                        "because total_amount (%s) / unit price (%s) = %s is close to %s",
-                        item.quantity, float(nearest_int), source_file, item.total_amount, item.price, round(ratio, 4), float(nearest_int)
+                        "because (total_amount (%s) - tax (%s)) / unit price (%s) = %s is close to %s",
+                        item.quantity, float(nearest_int), source_file, item.total_amount, item.tax, item.price, round(ratio, 4), float(nearest_int)
                     )
                     corrected_quantity = float(nearest_int)
                 else:
                     extra_issues.append(
-                        f"price ({item.price}) * quantity ({item.quantity}) != "
+                        f"price ({item.price}) * quantity ({item.quantity}) + tax ({item.tax}) != "
                         f"total_amount ({item.total_amount})"
                     )
 

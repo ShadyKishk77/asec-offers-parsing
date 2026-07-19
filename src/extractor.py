@@ -51,7 +51,12 @@ _POPPLER_PATH: str | None = os.getenv("POPPLER_PATH") or None
 
 # Language(s) passed to Tesseract — override via TESSERACT_LANG in .env
 # Use '+'-separated codes for multi-language, e.g. "eng+ara"
-_TESSERACT_LANG: str = os.getenv("TESSERACT_LANG", "eng")
+_TESSERACT_LANG: str = os.getenv("TESSERACT_LANG", "eng+ara")
+
+# Auto-configure local tessdata prefix if the tessdata folder exists in the project root
+_LOCAL_TESSDATA = Path(__file__).parent.parent / "tessdata"
+if _LOCAL_TESSDATA.exists() and "TESSDATA_PREFIX" not in os.environ:
+    os.environ["TESSDATA_PREFIX"] = str(_LOCAL_TESSDATA)
 
 # Minimum character count to consider a page as "having text"
 _MIN_TEXT_CHARS = 20

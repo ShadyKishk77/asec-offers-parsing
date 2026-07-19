@@ -93,7 +93,7 @@ _SYSTEM_PROMPT = textwrap.dedent(f"""\
     {_SCHEMA_DESCRIPTION}
     
     Extraction rules:
-    - company_name : The name of the VENDOR. Look at letterheads or email domains. Do NOT use ASEC.
+    - company_name : The name of the VENDOR (the company issuing the document/providing the services). Look at letterheads, logos, signatures, or sender email domains. Do NOT extract the recipient/client company (do NOT use ASEC, ASEC Holding, ASEC Engineering, Arab Swiss Engineering Company, or any ASEC entity).
     - date         : Document date in ISO-8601 (YYYY-MM-DD).
     - currency     : Document currency ('EGP' or 'USD').
     - line_items   : Extract exact text for item_name. Do NOT translate.
@@ -160,6 +160,54 @@ def _coerce_numeric(val: any) -> float:
     return 0.0
 
 
+def _clean_company_name(name: str, filename: str) -> str:
+    """Fallback vendor name cleanup if recipient/client is extracted as vendor."""
+    from pathlib import Path
+    cleaned = name.strip()
+    name_lower = cleaned.lower()
+    
+    # If the company name contains ASEC, Arab Swiss, etc., it's a recipient error
+    is_recipient_error = (
+        "asec" in name_lower or
+        "arab swiss" in name_lower or
+        name_lower == "client" or
+        name_lower == "recipient" or
+        not name_lower
+    )
+    
+    if is_recipient_error:
+        fn_lower = filename.lower()
+        
+        # Check for known vendors in the filename
+        if "techsphere" in fn_lower:
+            return "Techsphere"
+        elif "techlink" in fn_lower:
+            return "Techlink"
+        elif "elite" in fn_lower:
+            return "Elite"
+        elif "digital planets" in fn_lower or "digitalplanets" in fn_lower:
+            return "Digital Planets"
+        elif "fortinet" in fn_lower or "forti" in fn_lower:
+            return "Fortinet"
+        elif "mit" in fn_lower:
+            return "MISR Information Technology (MIT)"
+        elif "3m" in fn_lower:
+            return "3M International"
+            
+        # Generic filename cleanup fallback:
+        # e.g. "Forti Renewal offer(Techlink)1.pdf" -> extract words and clean
+        import re
+        base = Path(filename).stem
+        base_clean = re.sub(r'[\d_\-\(\)\.\,\+]+', ' ', base)
+        words = base_clean.split()
+        ignore_words = {"offer", "renewal", "quote", "invoice", "client", "customer", "asec", "holding", "engineering"}
+        filtered_words = [w for w in words if w.lower() not in ignore_words]
+        if filtered_words:
+            return " ".join(filtered_words)
+            
+    return cleaned
+
+
 # ---------------------------------------------------------------------------
 # Public extraction function
 # ---------------------------------------------------------------------------
@@ -213,6 +261,10 @@ def extract_document_data(
     # --- Parse and validate with Pydantic ---
     try:
         data = json.loads(raw_json)
+        
+        # Clean company_name if it is recipient company
+        if isinstance(data, dict) and "company_name" in data:
+            data["company_name"] = _clean_company_name(data["company_name"], filename)
         
         # Coerce numeric fields in case the LLM returned strings with symbols/commas
         if isinstance(data, dict) and "line_items" in data and isinstance(data["line_items"], list):
