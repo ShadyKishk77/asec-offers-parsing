@@ -1,0 +1,33 @@
+# ============================================================
+# ASEC Document Extraction Pipeline — Python Dependencies
+# ============================================================
+# Install with:  pip install -r requirements.txt
+#
+# Windows OCR note:
+#   pdf2image requires Poppler for Windows.
+#   Download from: https://github.com/oschwartz10612/poppler-windows/releases
+#   Add the bin/ folder to your PATH, or set POPPLER_PATH in .env
+#
+#   pytesseract requires Tesseract-OCR for Windows.
+#   Download from: https://github.com/UB-Mannheim/tesseract/wiki
+#   Add the install folder to your PATH, or set TESSERACT_CMD in .env
+# ============================================================
+
+# Stage 1 — PDF Text Extraction
+pdfplumber>=0.11.0
+pdf2image>=1.17.0
+pytesseract>=0.3.13
+Pillow>=10.0.0
+
+# Stage 2 — LLM Integration
+ollama>=0.3.0
+
+# Stage 3 — Data Validation & Modelling
+pydantic>=2.7.0
+
+# Stage 4 — Data Manipulation & Export
+pandas>=2.2.0
+openpyxl>=3.1.0
+
+# Utilities
+python-dotenv>=1.0.0

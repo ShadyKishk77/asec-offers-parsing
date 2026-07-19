@@ -1,0 +1,17 @@
+# Python artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environment configuration
+.env
+
+# Generated Output files
+*.xlsx
+temp_uploads/
+
+# Local dependencies
+poppler/
+
+# Script utility
+git_push.py
