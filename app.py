@@ -283,11 +283,12 @@ if uploaded_files:
                     "elapsed": elapsed,
                 }
             except Exception as e:
+                logging.exception(f"Error processing document: {filename}")
                 elapsed = time.time() - t0
                 return {
                     "status": "error",
                     "filename": filename,
-                    "error": str(e),
+                    "error": f"{type(e).__name__}: {str(e)}",
                     "elapsed": elapsed,
                 }
 
@@ -339,7 +340,7 @@ if uploaded_files:
                         st.markdown(f"""
                         <div class="status-card error">
                             <h4>{result['filename']}</h4>
-                            <p>Could not process this document. Please check the file and try again.</p>
+                            <p>Could not process this document: <code>{result['error']}</code></p>
                         </div>
                         """, unsafe_allow_html=True)
 

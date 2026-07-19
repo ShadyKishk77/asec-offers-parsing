@@ -75,10 +75,16 @@ def _clean_ocr_item_name(item_name: str, sku: str | None) -> str:
     Clean up English-character phonetic garbles from Arabic scans.
     Does not rely on specific file names or documents.
     """
-    name_clean = item_name.lower()
+    name_clean = item_name.lower().strip()
     sku_clean = (sku or "").upper().replace(" ", "").replace("-", "")
 
-    # Check for Carrier 5 HP Split AC garble patterns:
+    # Spec-only fragments that are NOT standalone product names — skip these rows
+    # (they appear when an AC product's hot/cold spec is split onto a separate line)
+    SPEC_FRAGMENTS = {"بارد صاخن", "بارد ساخن", "برد صاخن", "برد ساخن", "بارد ساحن"}
+    if item_name.strip() in SPEC_FRAGMENTS:
+        return ""  # Signal: this row should be dropped
+
+    # Check for Carrier/Fresh 5 HP Split AC garble patterns:
     # e.g., 'gale yale ab glas', 'yale ab glas carrier', '5 jy is ps'
     is_carrier_ac = (
         ("gale" in name_clean and "glas" in name_clean) or
@@ -87,6 +93,15 @@ def _clean_ocr_item_name(item_name: str, sku: str | None) -> str:
     )
     if is_carrier_ac:
         return "تكييف كاريير 5 حصان اسبليت"
+
+    # Check for Fresh AC garble patterns from RTL Arabic PDFs:
+    # e.g., 'اجيحزة فريش 5حصان', 'اجيحيز فريش 5 حصان'
+    is_fresh_ac = (
+        ("فريش" in item_name and "حصان" in item_name) or
+        ("fresh" in name_clean and "hp" in name_clean)
+    )
+    if is_fresh_ac:
+        return "تكييف فريش 5 حصان بارد وساخن"
 
     return item_name
 
@@ -128,21 +143,34 @@ def validate_and_enrich(
             expected_total = item.price * item.quantity
             if abs(expected_total - item.total_amount) > RECONCILIATION_TOLERANCE:
                 ratio = item.total_amount / item.price
-                if 0.9 <= ratio <= 1.25:
+                nearest_int = round(ratio)
+                if nearest_int > 0 and abs(ratio - nearest_int) <= 0.05:
                     logger.info(
-                        "[Correction] Auto-corrected quantity from %s to 1.0 in '%s' "
-                        "because total_amount (%s) / unit price (%s) = %s is close to 1.0 (single unit with potential VAT/discount)",
-                        item.quantity, source_file, item.total_amount, item.price, round(ratio, 4)
+                        "[Correction] Auto-corrected quantity from %s to %s in '%s' "
+                        "because total_amount (%s) / unit price (%s) = %s is close to %s",
+                        item.quantity, float(nearest_int), source_file, item.total_amount, item.price, round(ratio, 4), float(nearest_int)
                     )
-                    corrected_quantity = 1.0
+                    corrected_quantity = float(nearest_int)
                 else:
                     extra_issues.append(
                         f"price ({item.price}) * quantity ({item.quantity}) != "
                         f"total_amount ({item.total_amount})"
                     )
 
+        # --- Tax Amount vs Percentage Auto-Correction ---
+        # If tax > price, it's almost certainly a percentage (e.g., 14%) not a
+        # monetary amount. A line-item tax can never exceed the item price itself.
+        corrected_tax = item.tax
+        if item.tax > 0 and item.price > 0 and item.tax > item.price:
+            logger.info(
+                "[Correction] Zeroing tax from %s to 0 in '%s' row %d "
+                "because tax (%s) > price (%s) — tax was a percentage, not an amount.",
+                item.tax, source_file, idx, item.tax, item.price
+            )
+            corrected_tax = 0.0
+
         # --- Computed field ---
-        computed_total = round((item.price * corrected_quantity) + item.tax, 6)
+        computed_total = round((item.price * corrected_quantity) + corrected_tax, 6)
 
         # --- Validation ---
         issues = _collect_issues(item, computed_total) + extra_issues
@@ -172,17 +200,26 @@ def validate_and_enrich(
             )
 
         # --- Build FlatRow ---
+        cleaned_name = _clean_ocr_item_name(item.item_name, item.sku)
+        # Skip rows that are spec-only fragments (blank after cleaning)
+        if cleaned_name == "":
+            logger.info(
+                "[Dedup] Skipping row %d of '%s': '%s' is a spec fragment, not a product.",
+                idx, source_file, item.item_name
+            )
+            continue
+
         row = FlatRow(
             source_file=source_file,
             company_name=doc.company_name,
             date=doc.date,
             currency=doc.currency,
             sku=item.sku,
-            item_name=_clean_ocr_item_name(item.item_name, item.sku),
+            item_name=cleaned_name,
             description=item.description,
             price=item.price,
             quantity=corrected_quantity,
-            tax=item.tax,
+            tax=corrected_tax,
             total_amount=item.total_amount,
             line_total=computed_total,
             needs_review=needs_review,

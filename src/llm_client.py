@@ -76,95 +76,42 @@ _SCHEMA_DESCRIPTION = """\
 # ---------------------------------------------------------------------------
 
 _SYSTEM_PROMPT = textwrap.dedent(f"""\
-    You are a document data-extraction assistant specialised in reading
-    vendor offer letters and invoices.
-
-    Your job is to extract structured data from the raw text of a PDF
-    document and return it ONLY as valid JSON matching the schema below.
-    Return ONLY the JSON object. No markdown, no explanation, no code fences.
-
+    You are a document data-extraction assistant specialised in reading vendor offer letters and invoices.
+    Your job is to extract structured data from the raw text of a PDF document and return it ONLY as valid JSON.
+    
     Required JSON schema:
     {_SCHEMA_DESCRIPTION}
-
+    
     Extraction rules:
-    - company_name : The name of the VENDOR or ISSUING company (not the buyer).
-                     *Crucial Scalability & Robustness Rules:*
-                     - Often the vendor name is not explicitly labeled (e.g. it doesn't say 'Vendor: ABC').
-                     - Identify the seller by looking at the letterhead logo at the top or bottom of the page, the company logo text, the email domain of the contact person (e.g. sales@vendorcompany.com implies 'vendorcompany' or similar), or signature blocks.
-                     - Do NOT use 'ASEC', 'Arab Swiss Engineering Company', 'ASEC Holding', or 'ASEC Engineering' as the company_name unless the offer is explicitly issued *by* ASEC (since ASEC is usually the customer/buyer receiving the offer).
-                     - **Filename Fallback Hint:** If the document text does not contain any other company name (due to a graphical logo that OCR missed), inspect the provided "Document filename" and extract the vendor name from it (e.g. using any parenthetical names or company keywords present in the filename).
-    - date         : The document date. Prefer ISO-8601 (YYYY-MM-DD). If only
-                     a month/year is given, use the 1st of that month.
-    - currency     : The currency of the document. Identify standard symbols or words:
-                     - If USD, $, Dollar, or USD is mentioned, set to 'USD'.
-                     - If EGP, Egyptian Pound, E.G.P., LE, L.E., or pound is mentioned, set to 'EGP'.
-                     - Default to 'EGP' if not stated or ambiguous.
-    - line_items   : Every product or service line found. Do NOT skip any.
-      - item_name  : REQUIRED. Short product / service name. Exact text as written in the document. Do NOT translate from English to Arabic.
-      - sku        : Include if a part number, SKU, or model code is present.
-      - description: Any longer spec text associated with this item.
-      - price      : Unit price as a plain number. Strip currency symbols.
-      - quantity   : Number of units. If not stated, default to 1.
-      - tax        : Tax for this line as a number. Default to 0 if absent.
-      - total_amount: Total price or amount for this line item as written on the page.
+    - company_name : The name of the VENDOR. Look at letterheads or email domains. Do NOT use ASEC.
+    - date         : Document date in ISO-8601 (YYYY-MM-DD).
+    - currency     : Document currency ('EGP' or 'USD').
+    - line_items   : Extract exact text for item_name. Do NOT translate.
+      - price      : Unit price. Strip symbols.
+      - quantity   : Default to 1 if not stated.
+      - tax        : The specific tax amount for this line.
+      - total_amount: Total post-tax amount for this line.
 
-    Rules to avoid duplicate or incorrect extractions:
-    - Do NOT extract totals, subtotals, VAT, or tax summaries as distinct line items.
-    - If a single product displays both its base price (e.g. 83,500.00) and its post-tax total (e.g. 95,190.00), extract only ONE line item representing that product. Use the base unit price as "price", and calculate the tax amount if explicitly shown.
-    - Do NOT confuse stock availability numbers (e.g. "STOCK 4" or "IN STOCK 4") with the quantity being quoted or ordered in the document. The quantity of the item being quoted/sold defaults to 1 unless the document explicitly states that the user is buying/ordering multiple units.
-
-    OCR artefact hints (the text may come from OCR — handle gracefully):
-    - The letter 'l' or 'I' may appear instead of the digit '1'.
-    - The letter 'O' may appear instead of the digit '0'.
-    - Thousands separators may be commas, periods, or spaces — parse numbers correctly.
-    - Lines may be mis-wrapped; use context to reconstruct item names / prices.
-
-    --- FEW-SHOT EXAMPLE ---
-    Input text:
-        Document filename: Acme Supplies Offer.pdf
-
-        [Page 1]
-        ACME SUPPLIES LLC
-        Tel: +20 2 1234-5678  |  sales@acmesupplies.com
-        Date: 15 March 2025
-
-        Quotation for Arab Swiss Engineering Company
-
-        #  | Description                          | SKU           | Unit Price  | Qty | Total
-        1  | Dell PowerEdge R750 Server           | R750-32G-2T   | $12,500.00  |  2  | $25,000.00
-        2  | 3-Year ProSupport Plus Warranty Ext. | PS-3Y-R750    |  $1,800.00  |  2  |  $3,600.00
-           | Subtotal                             |               |             |     | $28,600.00
-           | VAT (14%)                            |               |             |     |  $4,004.00
-           | TOTAL DUE                            |               |             |     | $32,604.00
-
-    Expected JSON output:
+    EXAMPLE EXTRACTION:
+    Raw Text:
+    Date: 2025-12-29
+    Item: تكييف كاريير 5 حصان   Qty: 1   Price: 83,500   VAT: 11,690   Total: 95,190
+    
+    Output JSON:
     {{
-      "company_name": "Acme Supplies LLC",
-      "date": "2025-03-15",
-      "currency": "USD",
+      "company_name": "Carrier Egypt",
+      "date": "2025-12-29",
+      "currency": "EGP",
       "line_items": [
         {{
-          "item_name": "Dell PowerEdge R750 Server",
-          "sku": "R750-32G-2T",
-          "price": 12500.00,
-          "quantity": 2,
-          "tax": 0,
-          "total_amount": 25000.00,
-          "confidence": 99
-        }},
-        {{
-          "item_name": "3-Year ProSupport Plus Warranty Extension",
-          "sku": "PS-3Y-R750",
-          "price": 1800.00,
-          "quantity": 2,
-          "tax": 0,
-          "total_amount": 3600.00,
-          "confidence": 97
+          "item_name": "تكييف كاريير 5 حصان",
+          "price": 83500.0,
+          "quantity": 1,
+          "tax": 11690.0,
+          "total_amount": 95190.0
         }}
       ]
     }}
-    Note: Subtotal, VAT, and TOTAL DUE rows are NOT extracted as line items.
-    --- END OF EXAMPLE ---
 """)
 
 

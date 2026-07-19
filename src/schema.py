@@ -46,8 +46,9 @@ class LineItem(BaseModel):
     tax: float = Field(
         default=0.0,
         description=(
-            "Tax amount for this line item (numeric). "
-            "Use 0 if no tax is stated."
+            "Tax AMOUNT (monetary, not percent) for this line item. "
+            "If only a tax percentage is shown (e.g. 14%), set this to 0. "
+            "Use 0 if no per-line tax amount is stated."
         ),
     )
     total_amount: Optional[float] = Field(
@@ -66,10 +67,12 @@ class DocumentExtract(BaseModel):
     company_name: str = Field(
         description="Name of the vendor / issuing company on the document."
     )
-    date: str = Field(
+    date: Optional[str] = Field(
+        default=None,
         description=(
-            "Date on the document in ISO-8601 format (YYYY-MM-DD) "
-            "or the original string if the format is ambiguous."
+            "Date on the document in ISO-8601 format (YYYY-MM-DD), "
+            "or the original string if the format is ambiguous. "
+            "Null if no date appears in the document."
         )
     )
     currency: str = Field(
@@ -99,7 +102,7 @@ class FlatRow(BaseModel):
 
     # -- Header fields (repeated per row) --
     company_name: str
-    date: str
+    date: Optional[str] = None
     currency: str
 
     # -- Line item fields --

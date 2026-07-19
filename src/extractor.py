@@ -274,7 +274,7 @@ def extract_text_from_pdf(pdf_path: str | Path) -> list[PageResult]:
 
             for i, page in enumerate(pdf.pages, start=1):
                 # --- Primary: pdfplumber text extraction ---
-                raw_text: str | None = page.extract_text()
+                raw_text: str | None = page.extract_text(layout=True)
 
                 if _is_meaningful(raw_text):
                     logger.debug(
