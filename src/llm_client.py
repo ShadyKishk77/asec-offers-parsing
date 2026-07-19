@@ -93,10 +93,12 @@ _SYSTEM_PROMPT = textwrap.dedent(f"""\
     {_SCHEMA_DESCRIPTION}
     
     Extraction rules:
-    - company_name : The name of the VENDOR (the company issuing the document/providing the services). Look at letterheads, logos, signatures, or sender email domains. Do NOT extract the recipient/client company (do NOT use ASEC, ASEC Holding, ASEC Engineering, Arab Swiss Engineering Company, or any ASEC entity).
+    - company_name : The name of the VENDOR (the company issuing the document/providing the services). Look at letterheads, logos, signatures, or sender email domains. Do NOT extract the recipient/client company (do NOT use ASEC, ASEC Holding, ASEC Engineering, Arab Swiss Engineering Company, or any ASEC entity). Look at the document filename to identify the vendor name if it is not clearly written as the sender in the text.
     - date         : Document date in ISO-8601 (YYYY-MM-DD).
     - currency     : Document currency ('EGP' or 'USD').
     - line_items   : Extract exact text for item_name. Do NOT translate.
+      - sku        : Part number, SKU, or model code (e.g. 'FC-10-0080F-950-02-12'), if present.
+      - description: Additional specification or description details belonging to this line, if present.
       - price      : Unit price. Strip symbols.
       - quantity   : Default to 1 if not stated.
       - tax        : The specific tax amount for this line.
@@ -105,7 +107,7 @@ _SYSTEM_PROMPT = textwrap.dedent(f"""\
     EXAMPLE EXTRACTION:
     Raw Text:
     Date: 2025-12-29
-    Item: تكييف كاريير 5 حصان   Qty: 1   Price: 83,500   VAT: 11,690   Total: 95,190
+    Item: تكييف كاريير 5 حصان   SKU: 53QHET36N-708F   Description: اسبليت حائطى بارد ساخن   Qty: 1   Price: 83,500   VAT: 11,690   Total: 95,190
     
     Output JSON:
     {{
@@ -115,10 +117,13 @@ _SYSTEM_PROMPT = textwrap.dedent(f"""\
       "line_items": [
         {{
           "item_name": "تكييف كاريير 5 حصان",
+          "sku": "53QHET36N-708F",
+          "description": "اسبليت حائطى بارد ساخن",
           "price": 83500.0,
           "quantity": 1,
           "tax": 11690.0,
-          "total_amount": 95190.0
+          "total_amount": 95190.0,
+          "confidence": 98
         }}
       ]
     }}

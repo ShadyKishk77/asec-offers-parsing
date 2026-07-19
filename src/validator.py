@@ -87,15 +87,20 @@ def _clean_ocr_item_name(item_name: str, sku: str | None) -> str:
 
     # Check for Carrier/Fresh 5 HP Split AC garble patterns:
     # e.g., 'gale yale ab glas', 'yale ab glas carrier', '5 jy is ps', 'كارية', 'كاريير'
-    is_carrier_ac = (
-        ("gale" in name_clean and "glas" in name_clean) or
-        ("yale" in name_clean and "glas" in name_clean) or
-        ("كاريير" in name_clean) or
-        ("كارية" in name_clean) or
-        ("carrier" in name_clean) or
-        ("53qhet36n" in sku_clean)
+    is_carrier_ac_5hp = (
+        ("53qhet36n" in sku_clean) or
+        (
+            (
+                ("gale" in name_clean and "glas" in name_clean) or
+                ("yale" in name_clean and "glas" in name_clean) or
+                ("كاريير" in name_clean) or
+                ("كارية" in name_clean) or
+                ("carrier" in name_clean)
+            )
+            and ("5" in name_clean or "٥" in name_clean)
+        )
     )
-    if is_carrier_ac and ("5" in name_clean or "٥" in name_clean):
+    if is_carrier_ac_5hp:
         return "تكييف كاريير 5 حصان اسبليت"
 
     # Check for Fresh AC garble patterns from RTL Arabic PDFs:
