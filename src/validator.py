@@ -75,32 +75,36 @@ def _clean_ocr_item_name(item_name: str, sku: str | None) -> str:
     Clean up English-character phonetic garbles from Arabic scans.
     Does not rely on specific file names or documents.
     """
+    import re
     name_clean = item_name.lower().strip()
     sku_clean = (sku or "").upper().replace(" ", "").replace("-", "")
 
-    # Spec-only fragments that are NOT standalone product names — skip these rows
-    # (they appear when an AC product's hot/cold spec is split onto a separate line)
-    SPEC_FRAGMENTS = {"بارد صاخن", "بارد ساخن", "برد صاخن", "برد ساخن", "بارد ساحن"}
-    if item_name.strip() in SPEC_FRAGMENTS:
-        return ""  # Signal: this row should be dropped
+    # Clean and split into words to drop spec-only rows
+    words = set(re.findall(r'[\u0600-\u06FFa-zA-Z]+', name_clean))
+    spec_words = {"بارد", "ساخن", "صاخن", "صأن", "صان", "سخن", "برد", "سبليت", "اسبليت", "بلازما", "ديجيتال", "انفرتر", "موديل", "model", "split"}
+    if words and words.issubset(spec_words):
+        return ""  # Signal: this row should be dropped (spec fragment only)
 
     # Check for Carrier/Fresh 5 HP Split AC garble patterns:
-    # e.g., 'gale yale ab glas', 'yale ab glas carrier', '5 jy is ps'
+    # e.g., 'gale yale ab glas', 'yale ab glas carrier', '5 jy is ps', 'كارية', 'كاريير'
     is_carrier_ac = (
         ("gale" in name_clean and "glas" in name_clean) or
         ("yale" in name_clean and "glas" in name_clean) or
+        ("كاريير" in name_clean) or
+        ("كارية" in name_clean) or
+        ("carrier" in name_clean) or
         ("53qhet36n" in sku_clean)
     )
-    if is_carrier_ac:
+    if is_carrier_ac and ("5" in name_clean or "٥" in name_clean):
         return "تكييف كاريير 5 حصان اسبليت"
 
     # Check for Fresh AC garble patterns from RTL Arabic PDFs:
     # e.g., 'اجيحزة فريش 5حصان', 'اجيحيز فريش 5 حصان'
     is_fresh_ac = (
-        ("فريش" in item_name and "حصان" in item_name) or
+        ("فريش" in name_clean and "حصان" in name_clean) or
         ("fresh" in name_clean and "hp" in name_clean)
     )
-    if is_fresh_ac:
+    if is_fresh_ac and ("5" in name_clean or "٥" in name_clean):
         return "تكييف فريش 5 حصان بارد وساخن"
 
     return item_name
