@@ -30,158 +30,191 @@ st.set_page_config(
 # Premium Styling
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
 
     html, body, [class*="css"] {
         font-family: 'Inter', sans-serif;
     }
 
     .stApp {
-        background-color: #f0f4f8;
+        background: #F8FAFC;
     }
 
-    /* Page header banner */
+    /* Page header banner with rich gradient & glow */
     .page-header {
-        background: linear-gradient(135deg, #1a2f5a 0%, #2d5086 100%);
-        border-radius: 14px;
-        padding: 2.2rem 2.5rem;
-        margin-bottom: 1.8rem;
+        background: linear-gradient(135deg, #0F172A 0%, #1E1B4B 50%, #312E81 100%);
+        border-radius: 16px;
+        padding: 2.5rem 3rem;
+        margin-bottom: 2rem;
         color: white;
+        box-shadow: 0 20px 25px -5px rgba(15, 23, 42, 0.15), 0 8px 10px -6px rgba(15, 23, 42, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        position: relative;
+        overflow: hidden;
+    }
+    .page-header::after {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -10%;
+        width: 300px;
+        height: 300px;
+        background: radial-gradient(circle, rgba(99, 102, 241, 0.25) 0%, rgba(0,0,0,0) 70%);
+        border-radius: 50%;
+        pointer-events: none;
     }
     .page-header h1 {
-        color: white !important;
-        font-size: 1.9rem;
+        font-family: 'Outfit', sans-serif !important;
+        color: #FFFFFF !important;
+        font-size: 2.2rem;
         font-weight: 700;
-        margin: 0 0 0.4rem 0;
-        letter-spacing: -0.3px;
+        margin: 0 0 0.5rem 0;
+        letter-spacing: -0.5px;
     }
     .page-header p {
-        color: rgba(255,255,255,0.75);
-        font-size: 0.95rem;
+        color: #C7D2FE;
+        font-size: 1.05rem;
         margin: 0;
         font-weight: 400;
+        max-width: 650px;
+        line-height: 1.5;
     }
 
-    /* Primary action button */
+    /* Primary action buttons */
     div.stButton > button:first-child {
-        background: linear-gradient(135deg, #1a2f5a, #2d5086);
+        background: linear-gradient(135deg, #4F46E5 0%, #3730A3 100%);
         color: white;
-        border-radius: 8px;
-        padding: 0.6rem 2.2rem;
+        border-radius: 10px;
+        padding: 0.65rem 2.4rem;
         font-weight: 600;
-        font-size: 0.95rem;
+        font-size: 0.98rem;
         border: none;
-        letter-spacing: 0.2px;
+        letter-spacing: 0.3px;
         transition: all 0.25s ease;
-        box-shadow: 0 2px 8px rgba(26, 47, 90, 0.25);
+        box-shadow: 0 4px 14px rgba(79, 70, 229, 0.35);
     }
     div.stButton > button:first-child:hover {
-        background: linear-gradient(135deg, #2d5086, #3a64a8);
-        transform: translateY(-1px);
-        box-shadow: 0 5px 16px rgba(26, 47, 90, 0.3);
+        background: linear-gradient(135deg, #6366F1 0%, #4338CA 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(79, 70, 229, 0.45);
     }
 
-    /* Metric cards */
+    /* Metric glassmorphic cards */
     .metric-card {
-        background: white;
-        border-radius: 12px;
-        padding: 1.4rem 1.6rem;
-        box-shadow: 0 2px 12px rgba(0,0,0,0.06);
-        border-top: 3px solid #1a2f5a;
+        background: #FFFFFF;
+        border-radius: 14px;
+        padding: 1.5rem 1.6rem;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.04);
+        border: 1px solid #E2E8F0;
+        border-top: 4px solid #4F46E5;
         text-align: center;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .metric-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 25px rgba(0,0,0,0.07);
     }
     .metric-card.warn {
-        border-top: 3px solid #e6a817;
+        border-top: 4px solid #F59E0B;
     }
     .metric-card.good {
-        border-top: 3px solid #2e7d4f;
+        border-top: 4px solid #10B981;
     }
     .metric-label {
-        font-size: 0.78rem;
-        font-weight: 600;
-        color: #7a8599;
+        font-size: 0.76rem;
+        font-weight: 700;
+        color: #64748B;
         text-transform: uppercase;
-        letter-spacing: 0.6px;
-        margin-bottom: 0.5rem;
+        letter-spacing: 0.8px;
+        margin-bottom: 0.6rem;
     }
     .metric-value {
-        font-size: 2rem;
+        font-family: 'Outfit', sans-serif;
+        font-size: 2.1rem;
         font-weight: 700;
-        color: #1a2f5a;
+        color: #0F172A;
         line-height: 1;
     }
-    .metric-value.warn { color: #c47f00; }
-    .metric-value.good { color: #2e7d4f; }
+    .metric-value.warn { color: #D97706; }
+    .metric-value.good { color: #059669; }
 
     /* Status cards */
     .status-card {
-        background: white;
-        border-radius: 10px;
-        padding: 1rem 1.2rem;
-        margin-bottom: 0.6rem;
-        box-shadow: 0 1px 6px rgba(0,0,0,0.05);
-        border-left: 4px solid #1a2f5a;
+        background: #FFFFFF;
+        border-radius: 12px;
+        padding: 1.1rem 1.4rem;
+        margin-bottom: 0.75rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        border: 1px solid #E2E8F0;
+        border-left: 5px solid #10B981;
+        transition: transform 0.15s ease;
+    }
+    .status-card:hover {
+        transform: translateX(3px);
     }
     .status-card h4 {
-        margin: 0 0 0.3rem 0;
-        font-size: 0.92rem;
+        margin: 0 0 0.35rem 0;
+        font-size: 0.98rem;
         font-weight: 600;
-        color: #1a2f5a;
+        color: #0F172A;
     }
     .status-card p {
         margin: 0;
-        font-size: 0.83rem;
-        color: #6b7280;
+        font-size: 0.86rem;
+        color: #64748B;
     }
     .status-card.flagged {
-        border-left-color: #e6a817;
-        background: #fffbf0;
+        border-left-color: #F59E0B;
+        background: #FFFBEB;
     }
     .status-card.error {
-        border-left-color: #d9534f;
-        background: #fff5f5;
+        border-left-color: #EF4444;
+        background: #FEF2F2;
     }
-    .status-card.flagged h4 { color: #a06c00; }
-    .status-card.error h4 { color: #b94040; }
+    .status-card.flagged h4 { color: #B45309; }
+    .status-card.error h4 { color: #B91C1C; }
 
-    /* Section divider */
+    /* Section label */
     .section-label {
-        font-size: 0.72rem;
+        font-size: 0.78rem;
         font-weight: 700;
         text-transform: uppercase;
-        letter-spacing: 1px;
-        color: #9ca3af;
-        margin-bottom: 0.8rem;
+        letter-spacing: 1.2px;
+        color: #64748B;
+        margin-bottom: 0.9rem;
     }
 
-    /* Sidebar */
+    /* Sidebar Styling */
     section[data-testid="stSidebar"] {
-        background-color: #1a2f5a;
+        background-color: #0F172A;
+        border-right: 1px solid #1E293B;
     }
     section[data-testid="stSidebar"] * {
-        color: rgba(255,255,255,0.85) !important;
+        color: #CBD5E1 !important;
     }
     section[data-testid="stSidebar"] h1,
     section[data-testid="stSidebar"] h2,
     section[data-testid="stSidebar"] h3 {
-        color: white !important;
+        color: #FFFFFF !important;
+        font-family: 'Outfit', sans-serif;
     }
     section[data-testid="stSidebar"] .stMarkdown hr {
-        border-color: rgba(255,255,255,0.15);
+        border-color: #334155;
     }
     section[data-testid="stSidebar"] .stInfo {
-        background: rgba(255,255,255,0.1);
-        border: none;
-        border-radius: 8px;
+        background: rgba(30, 41, 59, 0.7);
+        border: 1px solid #334155;
+        border-radius: 10px;
     }
 
     h1, h2, h3 {
-        color: #1a2f5a !important;
-        font-family: 'Inter', sans-serif;
+        color: #0F172A !important;
+        font-family: 'Outfit', sans-serif;
     }
     .stTabs [data-baseweb="tab"] {
-        font-weight: 500;
-        font-size: 0.9rem;
+        font-weight: 600;
+        font-size: 0.95rem;
+        color: #475569;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -542,16 +575,47 @@ if st.session_state.extraction_done and st.session_state.all_rows:
         st.caption("Batch metrics and spending analytics.")
         c_col1, c_col2 = st.columns(2)
         
-        with c_col1:
-            st.markdown("#### Spend by Vendor (Total)")
-            vendor_spend = df_items.groupby("Vendor Name")["Line Total"].sum().reset_index()
-            st.bar_chart(vendor_spend.set_index("Vendor Name"))
-            
-        with c_col2:
-            st.markdown("#### Line Items per Currency")
-            curr_count = df_items.groupby("Currency")["Line Total"].agg(["count", "sum"]).reset_index()
-            curr_count.columns = ["Currency", "Line Item Count", "Total Value"]
-            st.dataframe(curr_count, use_container_width=True)
+        try:
+            import plotly.express as px
+            with c_col1:
+                st.markdown("#### Spend Breakdown by Vendor")
+                vendor_spend = df_items.groupby(["Vendor Name", "Currency"])["Line Total"].sum().reset_index()
+                fig_vendor = px.pie(
+                    vendor_spend, 
+                    names="Vendor Name", 
+                    values="Line Total", 
+                    color="Vendor Name",
+                    hole=0.45,
+                    color_discrete_sequence=px.colors.qualitative.Bold
+                )
+                fig_vendor.update_traces(textinfo="percent+label")
+                fig_vendor.update_layout(margin=dict(t=20, b=10, l=10, r=10), showlegend=False)
+                st.plotly_chart(fig_vendor, use_container_width=True)
+                
+            with c_col2:
+                st.markdown("#### Spend by Currency")
+                curr_spend = df_items.groupby("Currency")["Line Total"].sum().reset_index()
+                fig_curr = px.bar(
+                    curr_spend, 
+                    x="Currency", 
+                    y="Line Total", 
+                    color="Currency",
+                    color_discrete_map={"EGP": "#4F46E5", "USD": "#10B981"},
+                    text_auto=".2f"
+                )
+                fig_curr.update_layout(margin=dict(t=20, b=10, l=10, r=10))
+                st.plotly_chart(fig_curr, use_container_width=True)
+        except Exception:
+            with c_col1:
+                st.markdown("#### Spend by Vendor (Total)")
+                vendor_spend = df_items.groupby("Vendor Name")["Line Total"].sum().reset_index()
+                st.bar_chart(vendor_spend.set_index("Vendor Name"))
+                
+            with c_col2:
+                st.markdown("#### Line Items per Currency")
+                curr_count = df_items.groupby("Currency")["Line Total"].agg(["count", "sum"]).reset_index()
+                curr_count.columns = ["Currency", "Line Item Count", "Total Value"]
+                st.dataframe(curr_count, use_container_width=True)
     
     st.write("")
     st.markdown('<p class="section-label">Export</p>', unsafe_allow_html=True)
