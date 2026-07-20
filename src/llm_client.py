@@ -47,7 +47,7 @@ _OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
 _MODEL_NAME  = os.getenv("OLLAMA_MODEL", "llama3.1-gpu")
 
 _OR_API_KEY = os.getenv("OR_API") or os.getenv("OR_API_KEY") or os.getenv("OPENROUTER_API_KEY") or ""
-_OR_MODEL   = os.getenv("OR_MODEL") or os.getenv("OPENROUTER_MODEL") or "google/gemini-2.0-flash-001"
+_OR_MODEL   = os.getenv("OR_MODEL") or os.getenv("OPENROUTER_MODEL") or "meta-llama/llama-3.3-70b-instruct"
 
 # Fallback check for Streamlit secrets if running inside Streamlit Cloud
 try:
@@ -274,6 +274,7 @@ def extract_document_data(
     pages: list[PageResult],
     filename: str,
     api_key_override: str | None = None,
+    model_override: str | None = None,
 ) -> DocumentExtract:
     """
     Send page text to an LLM (OpenRouter API if key available, else Ollama)
@@ -283,6 +284,7 @@ def extract_document_data(
         pages:            List of PageResult objects from Stage 1 (extractor.py).
         filename:         The PDF filename (used in prompt and logging).
         api_key_override: Optional OpenRouter API key provided from UI.
+        model_override:   Optional model ID override provided from UI.
 
     Returns:
         A fully validated DocumentExtract Pydantic model.
@@ -294,7 +296,7 @@ def extract_document_data(
     active_or_key = (api_key_override or "").strip() or _OR_API_KEY
 
     if active_or_key:
-        model_used = _OR_MODEL
+        model_used = (model_override or "").strip() or _OR_MODEL
         logger.info(
             "LLM extraction: '%s' via OpenRouter/%s — %d page(s), %d OCR'd, %d OCR-failed",
             filename, model_used, len(pages), ocr_pages, failed_pages,

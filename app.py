@@ -224,10 +224,29 @@ with st.sidebar:
         help="If set, uses OpenRouter Cloud API instead of local Ollama.",
     )
     
+    available_or_models = [
+        "meta-llama/llama-3.3-70b-instruct",
+        "google/gemini-flash-1.5",
+        "openai/gpt-4o-mini",
+        "deepseek/deepseek-chat",
+        "qwen/qwen-2.5-72b-instruct",
+    ]
+    
+    default_idx = 0
+    if _OR_MODEL in available_or_models:
+        default_idx = available_or_models.index(_OR_MODEL)
+
+    ui_or_model = st.selectbox(
+        "OpenRouter Model",
+        options=available_or_models,
+        index=default_idx,
+        help="Select model when using OpenRouter API.",
+    )
+    
     active_or_key = (ui_or_key or "").strip()
     if active_or_key:
         st.info("⚡ Using **OpenRouter Cloud API**")
-        st.caption(f"**Model:** `{_OR_MODEL}`")
+        st.caption(f"**Model:** `{ui_or_model}`")
     else:
         st.info("💻 Using **Ollama (Local)**")
         st.caption(f"**Target Host:** `{_OLLAMA_HOST}`")
@@ -243,7 +262,7 @@ with st.sidebar:
                     timeout=5.0
                 )
                 if res.status_code == 200:
-                    st.success("OpenRouter API key is valid & connected!")
+                    st.success(f"OpenRouter API connected! Model: {ui_or_model}")
                 else:
                     st.error(f"OpenRouter returned status {res.status_code}: {res.text}")
             except Exception as err:
@@ -316,7 +335,12 @@ if uploaded_files:
             t0 = time.time()
             try:
                 pages = extract_text_from_pdf(temp_path)
-                doc = extract_document_data(pages, filename, api_key_override=ui_or_key)
+                doc = extract_document_data(
+                    pages, 
+                    filename, 
+                    api_key_override=ui_or_key, 
+                    model_override=ui_or_model
+                )
                 ocr_failed_pages = {p.page_num for p in pages if p.ocr_failed}
                 rows = validate_and_enrich(doc, filename, ocr_failed_pages or None)
                 flagged = sum(1 for r in rows if r.needs_review)
