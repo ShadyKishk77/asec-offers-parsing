@@ -584,16 +584,32 @@ if st.session_state.extraction_done and st.session_state.all_rows:
         st.markdown("### 📄 PDF Document Viewer")
         unique_files = sorted(list(set(df_items["Source File"].unique())))
         if unique_files:
-            selected_pdf = st.selectbox("Select PDF Document to View", options=unique_files)
+            pv_col1, pv_col2 = st.columns([3, 1])
+            selected_pdf = pv_col1.selectbox("Select PDF Document to View", options=unique_files)
             run_dir_path = Path(st.session_state.run_dir) if st.session_state.run_dir else TEMP_DIR
             target_pdf_path = run_dir_path / selected_pdf
             
             if target_pdf_path.exists():
-                import base64
+                import pdfplumber
                 with open(target_pdf_path, "rb") as f:
-                    base64_pdf = base64.b64encode(f.read()).decode('utf-8')
-                pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="750" type="application/pdf" style="border-radius:12px; border:1px solid #CBD5E1;"></iframe>'
-                st.markdown(pdf_display, unsafe_allow_html=True)
+                    pdf_bytes = f.read()
+                pv_col2.write("")
+                pv_col2.write("")
+                pv_col2.download_button("📥 Download PDF", data=pdf_bytes, file_name=selected_pdf, mime="application/pdf", use_container_width=True)
+                
+                try:
+                    with pdfplumber.open(target_pdf_path) as pdf:
+                        total_pages = len(pdf.pages)
+                        if total_pages > 1:
+                            selected_page_num = st.slider("Select Page", 1, total_pages, 1)
+                        else:
+                            selected_page_num = 1
+                        
+                        page = pdf.pages[selected_page_num - 1]
+                        page_img = page.to_image(resolution=150).original
+                        st.image(page_img, use_container_width=True, caption=f"Document: {selected_pdf} — Page {selected_page_num} of {total_pages}")
+                except Exception as err:
+                    st.error(f"Could not render PDF preview: {err}")
             else:
                 st.warning(f"File '{selected_pdf}' is not available for preview.")
     
