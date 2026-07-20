@@ -87,6 +87,8 @@ _SCHEMA_DESCRIPTION = """\
   "payment_terms":  "<string>  — payment policies/terms (e.g. '50% advance, 50% delivery', 'Deferred 45 days', 'Net 30')",
   "delivery_time":  "<string>  — delivery lead time / availability (e.g. '1-2 weeks', 'Immediate stock')",
   "offer_validity": "<string>  — offer validity period (e.g. '3 business days', '1 week')",
+  "total_tax":      <number>   — total monetary Tax or VAT amount for the whole document (omit if absent),
+  "vat_rate":       <number>   — tax percentage rate if stated (e.g. 14.0 for 14% VAT, omit if absent),
   "line_items": [
     {
       "item_name":    "<string>  — REQUIRED short product/service name",
@@ -94,9 +96,9 @@ _SCHEMA_DESCRIPTION = """\
       "description":  "<string>  — longer spec text (omit if absent)",
       "price":        <number>   — unit price, no currency symbol,
       "quantity":     <number>   — number of units (default 1 if not stated),
-      "tax":          <number>   — tax for this line (default 0 if absent),
-      "total_amount": <number>   — total price/amount for this line (omit if absent),
-      "confidence":   <number>   — integer 0-100: your confidence this is a real product/service line item (not a subtotal, header, or note)
+      "tax":          <number>   — monetary tax or VAT amount for this line (default 0 if absent),
+      "total_amount": <number>   — total post-tax price/amount for this line (omit if absent),
+      "confidence":   <number>   — integer 0-100: your confidence this is a real product/service line item
     }
   ]
 }"""
@@ -119,12 +121,14 @@ _SYSTEM_PROMPT = textwrap.dedent(f"""\
     - payment_terms  : Extract stated payment policies/terms (e.g. '50% advance, 50% delivery', 'Deferred 45 days', 'Net 30', '100% advance').
     - delivery_time  : Extract stated delivery schedule or availability (e.g. '1 to 2 weeks', 'Stock', '3-5 days').
     - offer_validity : Extract stated quote validity period (e.g. '3 business days', '7 days').
+    - total_tax      : Total Tax/VAT monetary amount if stated at the bottom of the document.
+    - vat_rate       : VAT percentage rate if stated anywhere (e.g., 14.0 for 14% VAT).
     - line_items     : Extract exact text for item_name. Do NOT translate.
       - sku          : Part number, SKU, or model code (e.g. 'FC-10-0080F-950-02-12'), if present.
       - description  : Additional specification or description details belonging to this line, if present.
       - price        : Unit price. Strip symbols.
       - quantity     : Default to 1 if not stated.
-      - tax          : The specific tax or VAT amount (monetary value, e.g. 11690.0, NOT percentage). Tax is frequently labeled as VAT, Value Added Tax, or ضريبة القيمة المضافة. Check Terms & Conditions for VAT notes (e.g. 'All prices include VAT', 'Prices exclude 14% VAT').
+      - tax          : Monetary amount of Tax or VAT for this line item. Note: 'VAT', 'V.A.T', 'Value Added Tax', 'Sales Tax', 'ضريبة القيمة المضافة', 'ضريبة', and 'ض.ق.م' are all TAX. Extract the monetary tax/VAT number here.
       - total_amount : Total post-tax amount for this line.
 
     EXAMPLE EXTRACTION:
@@ -142,6 +146,8 @@ _SYSTEM_PROMPT = textwrap.dedent(f"""\
       "payment_terms": "50% in advance with PO and 50% upon Delivery",
       "delivery_time": "1-3 Weeks",
       "offer_validity": "3 business days",
+      "total_tax": 11690.0,
+      "vat_rate": 14.0,
       "line_items": [
         {{
           "item_name": "تكييف كاريير 5 حصان",

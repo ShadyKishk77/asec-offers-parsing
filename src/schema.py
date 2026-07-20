@@ -91,6 +91,14 @@ class DocumentExtract(BaseModel):
         default=None,
         description="Validity period of the offer (e.g. '3 business days', '1 week')."
     )
+    total_tax: Optional[float] = Field(
+        default=None,
+        description="Overall Tax or VAT monetary amount stated for the whole document (omit if absent)."
+    )
+    vat_rate: Optional[float] = Field(
+        default=None,
+        description="VAT or tax percentage stated on document (e.g. 14.0 for 14% VAT, omit if absent)."
+    )
     line_items: list[LineItem] = Field(
         description="All product or service line items found in the document."
     )

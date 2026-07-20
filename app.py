@@ -40,44 +40,109 @@ st.markdown("""
         background: #F8FAFC;
     }
 
-    /* Page header banner with rich gradient & glow */
-    .page-header {
+    /* Hero container styling */
+    .hero-container {
         background: linear-gradient(135deg, #0F172A 0%, #1E1B4B 50%, #312E81 100%);
-        border-radius: 16px;
-        padding: 2.5rem 3rem;
+        border-radius: 20px;
+        padding: 3.2rem 3.5rem;
         margin-bottom: 2rem;
         color: white;
-        box-shadow: 0 20px 25px -5px rgba(15, 23, 42, 0.15), 0 8px 10px -6px rgba(15, 23, 42, 0.1);
-        border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 25px 30px -5px rgba(15, 23, 42, 0.2), 0 10px 15px -5px rgba(15, 23, 42, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.12);
         position: relative;
         overflow: hidden;
     }
-    .page-header::after {
+    .hero-container::after {
         content: '';
         position: absolute;
         top: -50%;
         right: -10%;
-        width: 300px;
-        height: 300px;
-        background: radial-gradient(circle, rgba(99, 102, 241, 0.25) 0%, rgba(0,0,0,0) 70%);
+        width: 380px;
+        height: 380px;
+        background: radial-gradient(circle, rgba(99, 102, 241, 0.3) 0%, rgba(0,0,0,0) 70%);
         border-radius: 50%;
         pointer-events: none;
     }
-    .page-header h1 {
+    .hero-badge {
+        display: inline-block;
+        background: rgba(99, 102, 241, 0.25);
+        color: #A5B4FC;
+        border: 1px solid rgba(165, 180, 252, 0.3);
+        padding: 0.35rem 1rem;
+        border-radius: 30px;
+        font-size: 0.78rem;
+        font-weight: 700;
+        letter-spacing: 1.2px;
+        margin-bottom: 1.2rem;
+    }
+    .hero-container h1 {
         font-family: 'Outfit', sans-serif !important;
         color: #FFFFFF !important;
-        font-size: 2.2rem;
+        font-size: 2.4rem;
         font-weight: 700;
-        margin: 0 0 0.5rem 0;
-        letter-spacing: -0.5px;
+        margin: 0 0 0.8rem 0;
+        letter-spacing: -0.8px;
+        line-height: 1.25;
     }
-    .page-header p {
+    .hero-container p {
         color: #C7D2FE;
-        font-size: 1.05rem;
-        margin: 0;
+        font-size: 1.08rem;
+        margin: 0 0 1.8rem 0;
         font-weight: 400;
-        max-width: 650px;
-        line-height: 1.5;
+        max-width: 780px;
+        line-height: 1.6;
+    }
+    .hero-pills {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.65rem;
+    }
+    .hero-pill {
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        color: #E0E7FF;
+        padding: 0.42rem 1rem;
+        border-radius: 20px;
+        font-size: 0.84rem;
+        font-weight: 500;
+    }
+
+    /* Feature Cards Grid */
+    .feature-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+        gap: 1.2rem;
+        margin-bottom: 2.2rem;
+    }
+    .feature-card {
+        background: #FFFFFF;
+        border: 1px solid #E2E8F0;
+        border-radius: 14px;
+        padding: 1.4rem;
+        box-shadow: 0 4px 14px rgba(0,0,0,0.03);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .feature-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 10px 25px rgba(0,0,0,0.07);
+        border-color: #CBD5E1;
+    }
+    .feature-icon {
+        font-size: 1.8rem;
+        margin-bottom: 0.6rem;
+    }
+    .feature-card h3 {
+        font-size: 1.05rem;
+        font-weight: 600;
+        color: #0F172A !important;
+        margin: 0 0 0.4rem 0;
+    }
+    .feature-card p {
+        font-size: 0.86rem;
+        color: #64748B;
+        margin: 0;
+        line-height: 1.45;
     }
 
     /* Primary action buttons */
@@ -85,9 +150,9 @@ st.markdown("""
         background: linear-gradient(135deg, #4F46E5 0%, #3730A3 100%);
         color: white;
         border-radius: 10px;
-        padding: 0.65rem 2.4rem;
+        padding: 0.7rem 2.5rem;
         font-weight: 600;
-        font-size: 0.98rem;
+        font-size: 1rem;
         border: none;
         letter-spacing: 0.3px;
         transition: all 0.25s ease;
@@ -219,11 +284,42 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Page Header Banner
+# Front Landing Page Hero Banner
 st.markdown("""
-<div class="page-header">
-    <h1>ASEC Document Intelligence</h1>
-    <p>Upload vendor quotes and invoices — we extract, structure, and export the data automatically.</p>
+<div class="hero-container">
+    <div class="hero-badge">🤖 AI-POWERED DOCUMENT INTELLIGENCE</div>
+    <h1>Transform Unstructured Vendor PDFs into Actionable Procurement Reports</h1>
+    <p>Upload vendor quotes, invoices, and tender letters in Arabic & English. Extract line items, prices, 14% VAT, payment terms, and delivery schedules in seconds.</p>
+    <div class="hero-pills">
+        <span class="hero-pill">⚡ Cloud & Local LLM</span>
+        <span class="hero-pill">🌐 Multi-Language (Arabic + English)</span>
+        <span class="hero-pill">⚖️ 14% VAT & Math Check</span>
+        <span class="hero-pill">📊 Two-Sheet Excel Export</span>
+        <span class="hero-pill">📄 PDF Document Viewer</span>
+    </div>
+</div>
+
+<div class="feature-grid">
+    <div class="feature-card">
+        <div class="feature-icon">🚀</div>
+        <h3>Automated Line Extraction</h3>
+        <p>Extracts SKUs, item descriptions, quantities, unit prices, and currencies without manual entry.</p>
+    </div>
+    <div class="feature-card">
+        <div class="feature-icon">⚖️</div>
+        <h3>Smart VAT & Math Check</h3>
+        <p>Detects 14% inclusive/exclusive VAT in Terms & Conditions and reconciles line totals.</p>
+    </div>
+    <div class="feature-card">
+        <div class="feature-icon">💳</div>
+        <h3>Payment & Delivery Parsing</h3>
+        <p>Identifies payment terms, deferred credit windows, and lead time availability schedules.</p>
+    </div>
+    <div class="feature-card">
+        <div class="feature-icon">📄</div>
+        <h3>Chrome-Safe PDF Preview</h3>
+        <p>Inspect original source documents page-by-page directly alongside extracted data tables.</p>
+    </div>
 </div>
 """, unsafe_allow_html=True)
 

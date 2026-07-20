@@ -194,25 +194,45 @@ def validate_and_enrich(
             )
             corrected_tax = 0.0
 
-        # --- Terms & Conditions VAT Auto-Enrichment ---
-        terms_text = (doc.payment_terms or "").lower()
+        # --- Dynamic Tax & VAT Reconciliation Engine ---
+        # Strategy 1: Stated total_amount exceeds (price * quantity) -> difference is VAT/Tax
+        line_val = item.price * corrected_quantity
         corrected_price = item.price
-        if corrected_tax == 0.0 and item.price > 0:
-            line_val = item.price * corrected_quantity
-            if "include vat" in terms_text or "includes vat" in terms_text or "شامل الضريبة" in terms_text:
-                # Prices include 14% VAT -> Stated price is post-VAT total
-                corrected_tax = round(line_val - (line_val / 1.14), 2)
-                corrected_price = round(item.price / 1.14, 6)
+        
+        if corrected_tax == 0.0 and item.total_amount is not None and item.total_amount > line_val:
+            implied_vat = round(item.total_amount - line_val, 2)
+            if implied_vat > 0:
+                corrected_tax = implied_vat
                 logger.info(
-                    "[VAT Enrichment] Extracted 14%% inclusive VAT (%s) for '%s' row %d based on terms note: '%s'",
-                    corrected_tax, source_file, idx, doc.payment_terms
-                )
-            elif item.total_amount is not None and abs(item.total_amount - (line_val * 1.14)) <= RECONCILIATION_TOLERANCE:
-                # Total amount states pre-tax + 14% VAT
-                corrected_tax = round(line_val * 0.14, 2)
-                logger.info(
-                    "[VAT Enrichment] Computed 14%% exclusive VAT (%s) for '%s' row %d (Total %s = Price %s * 1.14)",
+                    "[VAT Reconciliation] Dynamically inferred monetary VAT/Tax (%s) for '%s' row %d "
+                    "(Stated Total %s - Stated Pre-tax Subtotal %s)",
                     corrected_tax, source_file, idx, item.total_amount, line_val
+                )
+
+        # Strategy 2: Document-level vat_rate (e.g. 14%, 5%, 15%) or total_tax allocation
+        if corrected_tax == 0.0 and item.price > 0:
+            terms_text = (doc.payment_terms or "").lower()
+            vat_rate_pct = doc.vat_rate if doc.vat_rate and doc.vat_rate > 0 else 14.0
+            vat_multiplier = 1.0 + (vat_rate_pct / 100.0)
+
+            # Check if terms indicate inclusive tax (VAT/tax/ضريبة)
+            has_vat_term = any(k in terms_text for k in ["vat", "tax", "ضريبة", "ض.ق.م"])
+            is_inclusive = has_vat_term and any(k in terms_text for k in ["include", "includes", "شامل", "شاملة"])
+
+            if is_inclusive:
+                # Prices include VAT -> Extract VAT component from stated price
+                corrected_tax = round(line_val - (line_val / vat_multiplier), 2)
+                corrected_price = round(item.price / vat_multiplier, 6)
+                logger.info(
+                    "[VAT Reconciliation] Extracted %s%% inclusive VAT (%s) for '%s' row %d based on terms",
+                    vat_rate_pct, corrected_tax, source_file, idx
+                )
+            elif item.total_amount is not None and abs(item.total_amount - (line_val * vat_multiplier)) <= RECONCILIATION_TOLERANCE:
+                # Stated total is pre-tax + VAT rate
+                corrected_tax = round(line_val * (vat_rate_pct / 100.0), 2)
+                logger.info(
+                    "[VAT Reconciliation] Calculated %s%% exclusive VAT (%s) for '%s' row %d",
+                    vat_rate_pct, corrected_tax, source_file, idx
                 )
 
         # --- Computed field ---
