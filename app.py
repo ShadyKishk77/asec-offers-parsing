@@ -438,8 +438,8 @@ if st.session_state.extraction_done and st.session_state.all_rows:
     """, unsafe_allow_html=True)
     
     st.write("")
-    st.markdown('<p class="section-label">Extracted Data</p>', unsafe_allow_html=True)
-    tab1, tab2 = st.tabs(["Line Items", "Document Summary"])
+    st.markdown('<p class="section-label">Extracted Data & Insights</p>', unsafe_allow_html=True)
+    tab1, tab2, tab3 = st.tabs(["Line Items", "Document Summary", "Visual Analytics 📊"])
     
     with tab1:
         st.caption("Review and edit the extracted data below. Any changes you make will be reflected in the downloaded report.")
@@ -475,8 +475,20 @@ if st.session_state.extraction_done and st.session_state.all_rows:
         
         df_items = pd.DataFrame(items_data)
 
+        # --- Interactive Filters ---
+        f_col1, f_col2 = st.columns([2, 2])
+        all_vendors = sorted(list(set(df_items["Vendor Name"].unique())))
+        selected_vendors = f_col1.multiselect("Filter by Vendor", options=all_vendors, default=all_vendors)
+        status_filter = f_col2.selectbox("Filter by Review Status", options=["All Rows", "Needs Review Only", "Clean Rows Only"])
+
+        filtered_df = df_items[df_items["Vendor Name"].isin(selected_vendors)]
+        if status_filter == "Needs Review Only":
+            filtered_df = filtered_df[filtered_df["Status"] == "Needs Review"]
+        elif status_filter == "Clean Rows Only":
+            filtered_df = filtered_df[filtered_df["Status"] == "OK"]
+
         edited_df = st.data_editor(
-            df_items,
+            filtered_df,
             use_container_width=True,
             num_rows="fixed",
             column_config={
@@ -501,6 +513,21 @@ if st.session_state.extraction_done and st.session_state.all_rows:
         st.caption("One row per processed document.")
         df_docs = pd.DataFrame(doc_summaries)
         st.dataframe(df_docs, use_container_width=True)
+
+    with tab3:
+        st.caption("Batch metrics and spending analytics.")
+        c_col1, c_col2 = st.columns(2)
+        
+        with c_col1:
+            st.markdown("#### Spend by Vendor (Total)")
+            vendor_spend = df_items.groupby("Vendor Name")["Line Total"].sum().reset_index()
+            st.bar_chart(vendor_spend.set_index("Vendor Name"))
+            
+        with c_col2:
+            st.markdown("#### Line Items per Currency")
+            curr_count = df_items.groupby("Currency")["Line Total"].agg(["count", "sum"]).reset_index()
+            curr_count.columns = ["Currency", "Line Item Count", "Total Value"]
+            st.dataframe(curr_count, use_container_width=True)
     
     st.write("")
     st.markdown('<p class="section-label">Export</p>', unsafe_allow_html=True)

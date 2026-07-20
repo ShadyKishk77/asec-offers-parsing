@@ -69,7 +69,11 @@ try:
 except Exception:
     pass
 
-_client = ollama.Client(host=_OLLAMA_HOST)
+# Export aliases for clean import across modules
+OLLAMA_HOST = _OLLAMA_HOST
+OLLAMA_MODEL = _MODEL_NAME
+OR_API_KEY = _OR_API_KEY
+OR_MODEL = _OR_MODEL
 
 # ---------------------------------------------------------------------------
 # JSON schema (used inside the system prompt for instruction)
@@ -308,7 +312,8 @@ def extract_document_data(
             filename, model_used, len(pages), ocr_pages, failed_pages,
         )
         try:
-            response = _client.chat(
+            client = ollama.Client(host=_OLLAMA_HOST)
+            response = client.chat(
                 model=model_used,
                 messages=[
                     {"role": "system", "content": _SYSTEM_PROMPT},
