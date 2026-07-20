@@ -124,7 +124,7 @@ _SYSTEM_PROMPT = textwrap.dedent(f"""\
       - description  : Additional specification or description details belonging to this line, if present.
       - price        : Unit price. Strip symbols.
       - quantity     : Default to 1 if not stated.
-      - tax          : The specific tax amount for this line.
+      - tax          : The specific tax or VAT amount (monetary value, e.g. 11690.0, NOT percentage). Tax is frequently labeled as VAT, Value Added Tax, or ضريبة القيمة المضافة. Check Terms & Conditions for VAT notes (e.g. 'All prices include VAT', 'Prices exclude 14% VAT').
       - total_amount : Total post-tax amount for this line.
 
     EXAMPLE EXTRACTION:

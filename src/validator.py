@@ -194,8 +194,29 @@ def validate_and_enrich(
             )
             corrected_tax = 0.0
 
+        # --- Terms & Conditions VAT Auto-Enrichment ---
+        terms_text = (doc.payment_terms or "").lower()
+        corrected_price = item.price
+        if corrected_tax == 0.0 and item.price > 0:
+            line_val = item.price * corrected_quantity
+            if "include vat" in terms_text or "includes vat" in terms_text or "شامل الضريبة" in terms_text:
+                # Prices include 14% VAT -> Stated price is post-VAT total
+                corrected_tax = round(line_val - (line_val / 1.14), 2)
+                corrected_price = round(item.price / 1.14, 6)
+                logger.info(
+                    "[VAT Enrichment] Extracted 14%% inclusive VAT (%s) for '%s' row %d based on terms note: '%s'",
+                    corrected_tax, source_file, idx, doc.payment_terms
+                )
+            elif item.total_amount is not None and abs(item.total_amount - (line_val * 1.14)) <= RECONCILIATION_TOLERANCE:
+                # Total amount states pre-tax + 14% VAT
+                corrected_tax = round(line_val * 0.14, 2)
+                logger.info(
+                    "[VAT Enrichment] Computed 14%% exclusive VAT (%s) for '%s' row %d (Total %s = Price %s * 1.14)",
+                    corrected_tax, source_file, idx, item.total_amount, line_val
+                )
+
         # --- Computed field ---
-        computed_total = round((item.price * corrected_quantity) + corrected_tax, 6)
+        computed_total = round((corrected_price * corrected_quantity) + corrected_tax, 6)
 
         # --- Validation ---
         issues = _collect_issues(item, computed_total) + extra_issues
