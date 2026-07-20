@@ -266,6 +266,7 @@ def _call_openrouter_api(api_key: str, model_name: str, system_prompt: str, user
         ],
         "response_format": {"type": "json_object"},
         "temperature": 0,
+        "max_tokens": 2500,
     }
     response = httpx.post(url, headers=headers, json=payload, timeout=60.0)
     if response.status_code != 200:
