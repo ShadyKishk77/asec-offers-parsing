@@ -497,9 +497,10 @@ if st.session_state.extraction_done and st.session_state.all_rows:
     """, unsafe_allow_html=True)
     
     st.write("")
-    st.markdown('<p class="section-label">Extracted Data & Insights</p>', unsafe_allow_html=True)
-    tab1, tab2, tab3, tab4 = st.tabs(["Line Items", "Document Summary", "Visual Analytics 📊", "AI Decision Advisor 🤖"])
-    
+    st.write("")
+    st.markdown('<p class="section-label">Extracted Data & Document Viewer</p>', unsafe_allow_html=True)
+    tab1, tab2, tab3 = st.tabs(["Line Items", "Document Summary", "PDF Preview 📄"])
+
     with tab1:
         st.caption("Review and edit the extracted data below. Any changes you make will be reflected in the downloaded report.")
 
@@ -580,131 +581,21 @@ if st.session_state.extraction_done and st.session_state.all_rows:
         st.dataframe(df_docs, use_container_width=True)
 
     with tab3:
-        st.caption("Batch metrics and spending analytics.")
-        c_col1, c_col2 = st.columns(2)
-        
-        try:
-            import plotly.express as px
-            with c_col1:
-                st.markdown("#### Spend Breakdown by Vendor")
-                vendor_spend = df_items.groupby(["Vendor Name", "Currency"])["Line Total"].sum().reset_index()
-                fig_vendor = px.pie(
-                    vendor_spend, 
-                    names="Vendor Name", 
-                    values="Line Total", 
-                    color="Vendor Name",
-                    hole=0.45,
-                    color_discrete_sequence=px.colors.qualitative.Bold
-                )
-                fig_vendor.update_traces(textinfo="percent+label")
-                fig_vendor.update_layout(margin=dict(t=20, b=10, l=10, r=10), showlegend=False)
-                st.plotly_chart(fig_vendor, use_container_width=True)
-                
-            with c_col2:
-                st.markdown("#### Spend by Currency")
-                curr_spend = df_items.groupby("Currency")["Line Total"].sum().reset_index()
-                fig_curr = px.bar(
-                    curr_spend, 
-                    x="Currency", 
-                    y="Line Total", 
-                    color="Currency",
-                    color_discrete_map={"EGP": "#4F46E5", "USD": "#10B981"},
-                    text_auto=".2f"
-                )
-                fig_curr.update_layout(margin=dict(t=20, b=10, l=10, r=10))
-                st.plotly_chart(fig_curr, use_container_width=True)
-        except Exception:
-            with c_col1:
-                st.markdown("#### Spend by Vendor (Total)")
-                vendor_spend = df_items.groupby("Vendor Name")["Line Total"].sum().reset_index()
-                st.bar_chart(vendor_spend.set_index("Vendor Name"))
-                
-            with c_col2:
-                st.markdown("#### Line Items per Currency")
-                curr_count = df_items.groupby("Currency")["Line Total"].agg(["count", "sum"]).reset_index()
-                curr_count.columns = ["Currency", "Line Item Count", "Total Value"]
-                st.dataframe(curr_count, use_container_width=True)
-
-    with tab4:
-        st.markdown("### 🤖 AI Procurement Decision Advisor")
-        st.caption("AI-powered offer comparison matrix & procurement decision recommendation.")
-
-        # Group offer data by document/vendor for comparative analysis
-        vendor_offers = []
-        for summary in doc_summaries:
-            v_name = summary.get("Vendor", "—")
-            doc_name = summary.get("Document", "—")
-            curr = summary.get("Currency", "EGP")
-            p_terms = summary.get("Payment Terms", "—")
-            d_time = summary.get("Delivery Time", "—")
+        st.markdown("### 📄 PDF Document Viewer")
+        unique_files = sorted(list(set(df_items["Source File"].unique())))
+        if unique_files:
+            selected_pdf = st.selectbox("Select PDF Document to View", options=unique_files)
+            run_dir_path = Path(st.session_state.run_dir) if st.session_state.run_dir else TEMP_DIR
+            target_pdf_path = run_dir_path / selected_pdf
             
-            # Find total cost for this document
-            v_rows = [r for r in all_rows if r.source_file == doc_name]
-            v_total = sum(r.line_total for r in v_rows)
-            v_items = [r.item_name for r in v_rows]
-            
-            vendor_offers.append({
-                "Vendor": v_name,
-                "Document": doc_name,
-                "Total Price": v_total,
-                "Currency": curr,
-                "Payment Policy": p_terms,
-                "Delivery Time": d_time,
-                "Items Included": ", ".join(v_items),
-            })
-            
-        df_offers = pd.DataFrame(vendor_offers)
-        st.dataframe(df_offers, use_container_width=True)
-        
-        st.write("")
-        st.markdown("#### 🎯 AI Offer Comparison Insights")
-        
-        ad_col1, ad_col2, ad_col3 = st.columns(3)
-        
-        # 1. Find Lowest Price Offer
-        if not df_offers.empty:
-            min_row = df_offers.loc[df_offers['Total Price'].idxmin()]
-            ad_col1.markdown(f"""
-            <div class="metric-card good">
-                <div class="metric-label">🥇 Lowest Total Price</div>
-                <div style="font-weight:700; font-size:1.1rem; color:#059669; margin-top:0.4rem;">{min_row['Vendor']}</div>
-                <div style="font-size:0.95rem; color:#0F172A; font-weight:600;">{min_row['Total Price']:,.2f} {min_row['Currency']}</div>
-                <div style="font-size:0.78rem; color:#64748B; margin-top:0.3rem;">Doc: {min_row['Document']}</div>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            # 2. Find Best Delivery Offer
-            stock_offers = df_offers[df_offers['Delivery Time'].str.lower().str.contains('stock|immediate|day|week', na=False)]
-            fastest_vendor = stock_offers.iloc[0]['Vendor'] if not stock_offers.empty else min_row['Vendor']
-            fastest_time = stock_offers.iloc[0]['Delivery Time'] if not stock_offers.empty else min_row['Delivery Time']
-            ad_col2.markdown(f"""
-            <div class="metric-card">
-                <div class="metric-label">⚡ Fastest Delivery</div>
-                <div style="font-weight:700; font-size:1.1rem; color:#4F46E5; margin-top:0.4rem;">{fastest_vendor}</div>
-                <div style="font-size:0.95rem; color:#0F172A; font-weight:600;">{fastest_time}</div>
-                <div style="font-size:0.78rem; color:#64748B; margin-top:0.3rem;">Lead Time Schedule</div>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            # 3. Find Deferred Payment Offer
-            deferred = df_offers[df_offers['Payment Policy'].str.lower().str.contains('deferred|45|net|50%', na=False)]
-            best_pay_vendor = deferred.iloc[0]['Vendor'] if not deferred.empty else min_row['Vendor']
-            best_pay_terms = deferred.iloc[0]['Payment Policy'] if not deferred.empty else min_row['Payment Policy']
-            ad_col3.markdown(f"""
-            <div class="metric-card warn">
-                <div class="metric-label">💳 Payment Terms Flexibility</div>
-                <div style="font-weight:700; font-size:1.1rem; color:#D97706; margin-top:0.4rem;">{best_pay_vendor}</div>
-                <div style="font-size:0.92rem; color:#0F172A; font-weight:600;">{best_pay_terms}</div>
-                <div style="font-size:0.78rem; color:#64748B; margin-top:0.3rem;">Payment Policy</div>
-            </div>
-            """, unsafe_allow_html=True)
-
-            st.write("")
-            st.info(
-                f"💡 **Procurement Advice:** For lowest financial impact, **{min_row['Vendor']}** offers the most competitive total price "
-                f"at **{min_row['Total Price']:,.2f} {min_row['Currency']}**. If immediate project execution is required, verify **{fastest_vendor}** "
-                f"due to lead time schedule: `{fastest_time}`."
-            )
+            if target_pdf_path.exists():
+                import base64
+                with open(target_pdf_path, "rb") as f:
+                    base64_pdf = base64.b64encode(f.read()).decode('utf-8')
+                pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="750" type="application/pdf" style="border-radius:12px; border:1px solid #CBD5E1;"></iframe>'
+                st.markdown(pdf_display, unsafe_allow_html=True)
+            else:
+                st.warning(f"File '{selected_pdf}' is not available for preview.")
     
     st.write("")
     st.markdown('<p class="section-label">Export</p>', unsafe_allow_html=True)
