@@ -79,6 +79,18 @@ class DocumentExtract(BaseModel):
         default="EGP",
         description="Currency of the document. Must be either 'EGP' or 'USD'. Defaults to 'EGP' if not stated."
     )
+    payment_terms: Optional[str] = Field(
+        default=None,
+        description="Payment terms/policy stated on the document (e.g. '50% in advance, 50% upon delivery', 'Deferred 45 days', 'Net 30')."
+    )
+    delivery_time: Optional[str] = Field(
+        default=None,
+        description="Delivery lead time or availability stated on document (e.g. '1 to 2 weeks', 'Immediate stock', '3 business days')."
+    )
+    offer_validity: Optional[str] = Field(
+        default=None,
+        description="Validity period of the offer (e.g. '3 business days', '1 week')."
+    )
     line_items: list[LineItem] = Field(
         description="All product or service line items found in the document."
     )
@@ -104,6 +116,9 @@ class FlatRow(BaseModel):
     company_name: str
     date: Optional[str] = None
     currency: str
+    payment_terms: Optional[str] = None
+    delivery_time: Optional[str] = None
+    offer_validity: Optional[str] = None
 
     # -- Line item fields --
     sku: Optional[str] = None

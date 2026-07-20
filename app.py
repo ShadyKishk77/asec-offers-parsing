@@ -416,6 +416,8 @@ if uploaded_files:
                         "Vendor": result["doc"].company_name,
                         "Date": result["doc"].date,
                         "Currency": result["doc"].currency,
+                        "Payment Terms": result["doc"].payment_terms or "—",
+                        "Delivery Time": result["doc"].delivery_time or "—",
                         "Line Items": len(result["rows"]),
                         "Flagged": result["flagged"],
                         "Status": review_status,
@@ -496,7 +498,7 @@ if st.session_state.extraction_done and st.session_state.all_rows:
     
     st.write("")
     st.markdown('<p class="section-label">Extracted Data & Insights</p>', unsafe_allow_html=True)
-    tab1, tab2, tab3 = st.tabs(["Line Items", "Document Summary", "Visual Analytics 📊"])
+    tab1, tab2, tab3, tab4 = st.tabs(["Line Items", "Document Summary", "Visual Analytics 📊", "AI Decision Advisor 🤖"])
     
     with tab1:
         st.caption("Review and edit the extracted data below. Any changes you make will be reflected in the downloaded report.")
@@ -517,6 +519,9 @@ if st.session_state.extraction_done and st.session_state.all_rows:
                 "Source File": r.source_file,
                 "Vendor Name": r.company_name,
                 "Date": r.date,
+                "Payment Terms": r.payment_terms or "—",
+                "Delivery Time": r.delivery_time or "—",
+                "Validity": r.offer_validity or "—",
                 "SKU": r.sku or "",
                 "Item Name": r.item_name,
                 "Currency": r.currency,
@@ -552,6 +557,9 @@ if st.session_state.extraction_done and st.session_state.all_rows:
                 "Source File": st.column_config.TextColumn("Source File", disabled=True),
                 "Vendor Name": st.column_config.TextColumn("Vendor"),
                 "Date": st.column_config.TextColumn("Date"),
+                "Payment Terms": st.column_config.TextColumn("Payment Policy"),
+                "Delivery Time": st.column_config.TextColumn("Delivery Time"),
+                "Validity": st.column_config.TextColumn("Validity"),
                 "SKU": st.column_config.TextColumn("Part No."),
                 "Item Name": st.column_config.TextColumn("Item Description"),
                 "Currency": st.column_config.SelectboxColumn("Currency", options=["EGP", "USD"]),
@@ -616,6 +624,87 @@ if st.session_state.extraction_done and st.session_state.all_rows:
                 curr_count = df_items.groupby("Currency")["Line Total"].agg(["count", "sum"]).reset_index()
                 curr_count.columns = ["Currency", "Line Item Count", "Total Value"]
                 st.dataframe(curr_count, use_container_width=True)
+
+    with tab4:
+        st.markdown("### 🤖 AI Procurement Decision Advisor")
+        st.caption("AI-powered offer comparison matrix & procurement decision recommendation.")
+
+        # Group offer data by document/vendor for comparative analysis
+        vendor_offers = []
+        for summary in doc_summaries:
+            v_name = summary.get("Vendor", "—")
+            doc_name = summary.get("Document", "—")
+            curr = summary.get("Currency", "EGP")
+            p_terms = summary.get("Payment Terms", "—")
+            d_time = summary.get("Delivery Time", "—")
+            
+            # Find total cost for this document
+            v_rows = [r for r in all_rows if r.source_file == doc_name]
+            v_total = sum(r.line_total for r in v_rows)
+            v_items = [r.item_name for r in v_rows]
+            
+            vendor_offers.append({
+                "Vendor": v_name,
+                "Document": doc_name,
+                "Total Price": v_total,
+                "Currency": curr,
+                "Payment Policy": p_terms,
+                "Delivery Time": d_time,
+                "Items Included": ", ".join(v_items),
+            })
+            
+        df_offers = pd.DataFrame(vendor_offers)
+        st.dataframe(df_offers, use_container_width=True)
+        
+        st.write("")
+        st.markdown("#### 🎯 AI Offer Comparison Insights")
+        
+        ad_col1, ad_col2, ad_col3 = st.columns(3)
+        
+        # 1. Find Lowest Price Offer
+        if not df_offers.empty:
+            min_row = df_offers.loc[df_offers['Total Price'].idxmin()]
+            ad_col1.markdown(f"""
+            <div class="metric-card good">
+                <div class="metric-label">🥇 Lowest Total Price</div>
+                <div style="font-weight:700; font-size:1.1rem; color:#059669; margin-top:0.4rem;">{min_row['Vendor']}</div>
+                <div style="font-size:0.95rem; color:#0F172A; font-weight:600;">{min_row['Total Price']:,.2f} {min_row['Currency']}</div>
+                <div style="font-size:0.78rem; color:#64748B; margin-top:0.3rem;">Doc: {min_row['Document']}</div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # 2. Find Best Delivery Offer
+            stock_offers = df_offers[df_offers['Delivery Time'].str.lower().str.contains('stock|immediate|day|week', na=False)]
+            fastest_vendor = stock_offers.iloc[0]['Vendor'] if not stock_offers.empty else min_row['Vendor']
+            fastest_time = stock_offers.iloc[0]['Delivery Time'] if not stock_offers.empty else min_row['Delivery Time']
+            ad_col2.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-label">⚡ Fastest Delivery</div>
+                <div style="font-weight:700; font-size:1.1rem; color:#4F46E5; margin-top:0.4rem;">{fastest_vendor}</div>
+                <div style="font-size:0.95rem; color:#0F172A; font-weight:600;">{fastest_time}</div>
+                <div style="font-size:0.78rem; color:#64748B; margin-top:0.3rem;">Lead Time Schedule</div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # 3. Find Deferred Payment Offer
+            deferred = df_offers[df_offers['Payment Policy'].str.lower().str.contains('deferred|45|net|50%', na=False)]
+            best_pay_vendor = deferred.iloc[0]['Vendor'] if not deferred.empty else min_row['Vendor']
+            best_pay_terms = deferred.iloc[0]['Payment Policy'] if not deferred.empty else min_row['Payment Policy']
+            ad_col3.markdown(f"""
+            <div class="metric-card warn">
+                <div class="metric-label">💳 Payment Terms Flexibility</div>
+                <div style="font-weight:700; font-size:1.1rem; color:#D97706; margin-top:0.4rem;">{best_pay_vendor}</div>
+                <div style="font-size:0.92rem; color:#0F172A; font-weight:600;">{best_pay_terms}</div>
+                <div style="font-size:0.78rem; color:#64748B; margin-top:0.3rem;">Payment Policy</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            st.write("")
+            st.info(
+                f"💡 **Procurement Advice:** For lowest financial impact, **{min_row['Vendor']}** offers the most competitive total price "
+                f"at **{min_row['Total Price']:,.2f} {min_row['Currency']}**. If immediate project execution is required, verify **{fastest_vendor}** "
+                f"due to lead time schedule: `{fastest_time}`."
+            )
     
     st.write("")
     st.markdown('<p class="section-label">Export</p>', unsafe_allow_html=True)

@@ -81,9 +81,12 @@ OR_MODEL = _OR_MODEL
 
 _SCHEMA_DESCRIPTION = """\
 {
-  "company_name": "<string>  — name of the VENDOR / issuing company",
-  "date":         "<string>  — document date in ISO-8601 (YYYY-MM-DD)",
-  "currency":     "<string>  — Currency of the document: 'EGP' or 'USD'",
+  "company_name":   "<string>  — name of the VENDOR / issuing company",
+  "date":           "<string>  — document date in ISO-8601 (YYYY-MM-DD)",
+  "currency":       "<string>  — Currency of the document: 'EGP' or 'USD'",
+  "payment_terms":  "<string>  — payment policies/terms (e.g. '50% advance, 50% delivery', 'Deferred 45 days', 'Net 30')",
+  "delivery_time":  "<string>  — delivery lead time / availability (e.g. '1-2 weeks', 'Immediate stock')",
+  "offer_validity": "<string>  — offer validity period (e.g. '3 business days', '1 week')",
   "line_items": [
     {
       "item_name":    "<string>  — REQUIRED short product/service name",
@@ -110,20 +113,25 @@ _SYSTEM_PROMPT = textwrap.dedent(f"""\
     {_SCHEMA_DESCRIPTION}
     
     Extraction rules:
-    - company_name : The name of the VENDOR (the company issuing the document/providing the services). Look at letterheads, logos, signatures, or sender email domains. Do NOT extract the recipient/client company (do NOT use ASEC, ASEC Holding, ASEC Engineering, Arab Swiss Engineering Company, or any ASEC entity). Look at the document filename to identify the vendor name if it is not clearly written as the sender in the text.
-    - date         : Document date in ISO-8601 (YYYY-MM-DD).
-    - currency     : Document currency ('EGP' or 'USD').
-    - line_items   : Extract exact text for item_name. Do NOT translate.
-      - sku        : Part number, SKU, or model code (e.g. 'FC-10-0080F-950-02-12'), if present.
-      - description: Additional specification or description details belonging to this line, if present.
-      - price      : Unit price. Strip symbols.
-      - quantity   : Default to 1 if not stated.
-      - tax        : The specific tax amount for this line.
-      - total_amount: Total post-tax amount for this line.
+    - company_name   : The name of the VENDOR (the company issuing the document/providing the services). Look at letterheads, logos, signatures, or sender email domains. Do NOT extract the recipient/client company (do NOT use ASEC, ASEC Holding, ASEC Engineering, Arab Swiss Engineering Company, or any ASEC entity). Look at the document filename to identify the vendor name if it is not clearly written as the sender in the text.
+    - date           : Document date in ISO-8601 (YYYY-MM-DD).
+    - currency       : Document currency ('EGP' or 'USD').
+    - payment_terms  : Extract stated payment policies/terms (e.g. '50% advance, 50% delivery', 'Deferred 45 days', 'Net 30', '100% advance').
+    - delivery_time  : Extract stated delivery schedule or availability (e.g. '1 to 2 weeks', 'Stock', '3-5 days').
+    - offer_validity : Extract stated quote validity period (e.g. '3 business days', '7 days').
+    - line_items     : Extract exact text for item_name. Do NOT translate.
+      - sku          : Part number, SKU, or model code (e.g. 'FC-10-0080F-950-02-12'), if present.
+      - description  : Additional specification or description details belonging to this line, if present.
+      - price        : Unit price. Strip symbols.
+      - quantity     : Default to 1 if not stated.
+      - tax          : The specific tax amount for this line.
+      - total_amount : Total post-tax amount for this line.
 
     EXAMPLE EXTRACTION:
     Raw Text:
     Date: 2025-12-29
+    Payment terms: 50% in advance with PO and 50% upon Delivery
+    Delivery: 1-3 Weeks
     Item: تكييف كاريير 5 حصان   SKU: 53QHET36N-708F   Description: اسبليت حائطى بارد ساخن   Qty: 1   Price: 83,500   VAT: 11,690   Total: 95,190
     
     Output JSON:
@@ -131,6 +139,9 @@ _SYSTEM_PROMPT = textwrap.dedent(f"""\
       "company_name": "Carrier Egypt",
       "date": "2025-12-29",
       "currency": "EGP",
+      "payment_terms": "50% in advance with PO and 50% upon Delivery",
+      "delivery_time": "1-3 Weeks",
+      "offer_validity": "3 business days",
       "line_items": [
         {{
           "item_name": "تكييف كاريير 5 حصان",
