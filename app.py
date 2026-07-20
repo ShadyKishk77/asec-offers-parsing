@@ -213,23 +213,50 @@ with st.sidebar:
     st.markdown("## ASEC Document Intelligence")
     st.markdown("---")
     
-    # Connection Diagnostics
-    st.markdown("### Connection Diagnostics")
-    from src.llm_client import _OLLAMA_HOST, _MODEL_NAME
-    st.caption(f"**Target Host:** `{_OLLAMA_HOST}`")
-    st.caption(f"**Target Model:** `{_MODEL_NAME}`")
+    # LLM Settings & Connection Diagnostics
+    st.markdown("### LLM Provider Settings")
+    from src.llm_client import _OLLAMA_HOST, _MODEL_NAME, _OR_API_KEY, _OR_MODEL
+    
+    ui_or_key = st.text_input(
+        "OpenRouter API Key (optional)",
+        value=_OR_API_KEY,
+        type="password",
+        help="If set, uses OpenRouter Cloud API instead of local Ollama.",
+    )
+    
+    active_or_key = (ui_or_key or "").strip()
+    if active_or_key:
+        st.info("⚡ Using **OpenRouter Cloud API**")
+        st.caption(f"**Model:** `{_OR_MODEL}`")
+    else:
+        st.info("💻 Using **Ollama (Local)**")
+        st.caption(f"**Target Host:** `{_OLLAMA_HOST}`")
+        st.caption(f"**Target Model:** `{_MODEL_NAME}`")
     
     if st.button("Test Connection"):
-        try:
-            import httpx
-            # Try to ping the Ollama server base URL
-            res = httpx.get(_OLLAMA_HOST, timeout=5.0)
-            if res.status_code == 200 or "Ollama is running" in res.text:
-                st.success("Ollama is reachable!")
-            else:
-                st.error(f"Ollama returned status: {res.status_code}")
-        except Exception as err:
-            st.error(f"Failed to connect: {err}")
+        import httpx
+        if active_or_key:
+            try:
+                res = httpx.get(
+                    "https://openrouter.ai/api/v1/auth/key",
+                    headers={"Authorization": f"Bearer {active_or_key}"},
+                    timeout=5.0
+                )
+                if res.status_code == 200:
+                    st.success("OpenRouter API key is valid & connected!")
+                else:
+                    st.error(f"OpenRouter returned status {res.status_code}: {res.text}")
+            except Exception as err:
+                st.error(f"Failed to connect to OpenRouter: {err}")
+        else:
+            try:
+                res = httpx.get(_OLLAMA_HOST, timeout=5.0)
+                if res.status_code == 200 or "Ollama is running" in res.text:
+                    st.success("Ollama is reachable!")
+                else:
+                    st.error(f"Ollama returned status: {res.status_code}")
+            except Exception as err:
+                st.error(f"Failed to connect to Ollama: {err}")
             
     st.markdown("---")
     st.markdown("### Capabilities")
@@ -289,7 +316,7 @@ if uploaded_files:
             t0 = time.time()
             try:
                 pages = extract_text_from_pdf(temp_path)
-                doc = extract_document_data(pages, filename)
+                doc = extract_document_data(pages, filename, api_key_override=ui_or_key)
                 ocr_failed_pages = {p.page_num for p in pages if p.ocr_failed}
                 rows = validate_and_enrich(doc, filename, ocr_failed_pages or None)
                 flagged = sum(1 for r in rows if r.needs_review)

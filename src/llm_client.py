@@ -40,11 +40,14 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Ollama client configuration
+# Ollama and OpenRouter configuration
 # ---------------------------------------------------------------------------
 
 _OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
 _MODEL_NAME  = os.getenv("OLLAMA_MODEL", "llama3.1-gpu")
+
+_OR_API_KEY = os.getenv("OR_API") or os.getenv("OR_API_KEY") or os.getenv("OPENROUTER_API_KEY") or ""
+_OR_MODEL   = os.getenv("OR_MODEL") or os.getenv("OPENROUTER_MODEL") or "google/gemini-2.0-flash-001"
 
 # Fallback check for Streamlit secrets if running inside Streamlit Cloud
 try:
@@ -53,6 +56,16 @@ try:
         _OLLAMA_HOST = st.secrets["OLLAMA_HOST"]
     if "OLLAMA_MODEL" in st.secrets:
         _MODEL_NAME = st.secrets["OLLAMA_MODEL"]
+    if "OR_API" in st.secrets:
+        _OR_API_KEY = st.secrets["OR_API"]
+    elif "OR_API_KEY" in st.secrets:
+        _OR_API_KEY = st.secrets["OR_API_KEY"]
+    elif "OPENROUTER_API_KEY" in st.secrets:
+        _OR_API_KEY = st.secrets["OPENROUTER_API_KEY"]
+    if "OR_MODEL" in st.secrets:
+        _OR_MODEL = st.secrets["OR_MODEL"]
+    elif "OPENROUTER_MODEL" in st.secrets:
+        _OR_MODEL = st.secrets["OPENROUTER_MODEL"]
 except Exception:
     pass
 
@@ -213,6 +226,42 @@ def _clean_company_name(name: str, filename: str) -> str:
     return cleaned
 
 
+def _call_openrouter_api(api_key: str, model_name: str, system_prompt: str, user_message: str) -> str:
+    """Send structured extraction request to OpenRouter API."""
+    import httpx
+    import re
+    url = "https://openrouter.ai/api/v1/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {api_key.strip()}",
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://github.com/ShadyKishk77/asec-offers-parsing",
+        "X-Title": "ASEC Document Intelligence",
+    }
+    payload = {
+        "model": model_name,
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user",   "content": user_message},
+        ],
+        "response_format": {"type": "json_object"},
+        "temperature": 0,
+    }
+    response = httpx.post(url, headers=headers, json=payload, timeout=60.0)
+    if response.status_code != 200:
+        raise RuntimeError(f"OpenRouter API error (HTTP {response.status_code}): {response.text}")
+    data = response.json()
+    try:
+        content = data["choices"][0]["message"]["content"]
+    except (KeyError, IndexError) as exc:
+        raise RuntimeError(f"Unexpected OpenRouter response structure: {data}") from exc
+
+    content_clean = content.strip()
+    if content_clean.startswith("```"):
+        content_clean = re.sub(r"^```(?:json)?\n?", "", content_clean)
+        content_clean = re.sub(r"\n?```$", "", content_clean)
+    return content_clean
+
+
 # ---------------------------------------------------------------------------
 # Public extraction function
 # ---------------------------------------------------------------------------
@@ -220,48 +269,62 @@ def _clean_company_name(name: str, filename: str) -> str:
 def extract_document_data(
     pages: list[PageResult],
     filename: str,
+    api_key_override: str | None = None,
 ) -> DocumentExtract:
     """
-    Send page text to a local Ollama model and return a validated DocumentExtract.
+    Send page text to an LLM (OpenRouter API if key available, else Ollama)
+    and return a validated DocumentExtract.
 
     Args:
-        pages:    List of PageResult objects from Stage 1 (extractor.py).
-                  Each carries page number, text, and OCR metadata.
-        filename: The PDF filename (used in the prompt and for logging).
+        pages:            List of PageResult objects from Stage 1 (extractor.py).
+        filename:         The PDF filename (used in prompt and logging).
+        api_key_override: Optional OpenRouter API key provided from UI.
 
     Returns:
         A fully validated DocumentExtract Pydantic model.
-
-    Raises:
-        RuntimeError: If the Ollama call fails or the response cannot be parsed.
     """
     ocr_pages    = sum(1 for p in pages if p.ocr_used)
     failed_pages = sum(1 for p in pages if p.ocr_failed)
-    logger.info(
-        "LLM extraction: '%s' via Ollama/%s — %d page(s), %d OCR'd, %d OCR-failed",
-        filename, _MODEL_NAME, len(pages), ocr_pages, failed_pages,
-    )
-
     user_message = _build_user_message(pages, filename)
 
-    try:
-        response = _client.chat(
-            model=_MODEL_NAME,
-            messages=[
-                {"role": "system", "content": _SYSTEM_PROMPT},
-                {"role": "user",   "content": user_message},
-            ],
-            format="json",          # Ollama enforces JSON grammar-constrained output
-            options={
-                "temperature": 0,   # deterministic — no creative licence for data extraction
-            },
-            keep_alive=-1,          # keep model loaded in VRAM permanently to prevent disk load times
+    active_or_key = (api_key_override or "").strip() or _OR_API_KEY
+
+    if active_or_key:
+        model_used = _OR_MODEL
+        logger.info(
+            "LLM extraction: '%s' via OpenRouter/%s — %d page(s), %d OCR'd, %d OCR-failed",
+            filename, model_used, len(pages), ocr_pages, failed_pages,
         )
-        raw_json: str = response.message.content
-    except Exception as exc:
-        raise RuntimeError(
-            f"Ollama API call failed for '{filename}': {exc}"
-        ) from exc
+        try:
+            raw_json = _call_openrouter_api(active_or_key, model_used, _SYSTEM_PROMPT, user_message)
+        except Exception as exc:
+            raise RuntimeError(
+                f"OpenRouter API call failed for '{filename}': {exc}"
+            ) from exc
+    else:
+        model_used = _MODEL_NAME
+        logger.info(
+            "LLM extraction: '%s' via Ollama/%s — %d page(s), %d OCR'd, %d OCR-failed",
+            filename, model_used, len(pages), ocr_pages, failed_pages,
+        )
+        try:
+            response = _client.chat(
+                model=model_used,
+                messages=[
+                    {"role": "system", "content": _SYSTEM_PROMPT},
+                    {"role": "user",   "content": user_message},
+                ],
+                format="json",          # Ollama enforces JSON grammar-constrained output
+                options={
+                    "temperature": 0,   # deterministic — no creative licence for data extraction
+                },
+                keep_alive=-1,          # keep model loaded in VRAM permanently
+            )
+            raw_json: str = response.message.content
+        except Exception as exc:
+            raise RuntimeError(
+                f"Ollama API call failed for '{filename}': {exc}"
+            ) from exc
 
     # --- Parse and validate with Pydantic ---
     try:
