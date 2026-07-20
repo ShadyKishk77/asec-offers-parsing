@@ -269,7 +269,11 @@ def export_to_excel(rows: list[FlatRow], output_path: str | Path) -> None:
     # --- Build summary DataFrame ---
     df_summary = (
         df_items
-        .groupby(["source_file", "company_name", "date", "currency"], as_index=False)
+        .groupby(
+            ["source_file", "company_name", "date", "currency", "payment_terms", "delivery_time"], 
+            as_index=False, 
+            dropna=False
+        )
         .agg(
             total_items  = ("item_name",   "count"),
             total_cost   = ("line_total",  "sum"),
@@ -296,9 +300,12 @@ def export_to_excel(rows: list[FlatRow], output_path: str | Path) -> None:
     wb.save(str(output_path))
 
     logger.info("Workbook saved: %s", output_path.resolve())
-    print(f"\n✅  Workbook saved → {output_path.resolve()}")
-    print(f"    Line Items sheet  : {len(df_items)} row(s)")
-    print(f"    Summary sheet     : {len(df_summary)} document(s)")
-    flagged = int(df_summary['review_count'].sum())
-    if flagged:
-        print(f"    ⚠️  {flagged} row(s) need manual review (highlighted in amber)")
+    try:
+        print(f"\n✅  Workbook saved → {output_path.resolve()}")
+        print(f"    Line Items sheet  : {len(df_items)} row(s)")
+        print(f"    Summary sheet     : {len(df_summary)} document(s)")
+        flagged = int(df_summary['review_count'].sum())
+        if flagged:
+            print(f"    ⚠️  {flagged} row(s) need manual review (highlighted in amber)")
+    except Exception:
+        pass
