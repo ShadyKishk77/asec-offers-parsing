@@ -47,7 +47,7 @@ _OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
 _MODEL_NAME  = os.getenv("OLLAMA_MODEL", "llama3.1-gpu")
 
 _OR_API_KEY = os.getenv("OR_API") or os.getenv("OR_API_KEY") or os.getenv("OPENROUTER_API_KEY") or ""
-_OR_MODEL   = os.getenv("OR_MODEL") or os.getenv("OPENROUTER_MODEL") or "meta-llama/llama-3.3-70b-instruct"
+_OR_MODEL   = os.getenv("OR_MODEL") or os.getenv("OPENROUTER_MODEL") or "openai/gpt-4o-mini"
 
 # Fallback check for Streamlit secrets if running inside Streamlit Cloud
 try:
