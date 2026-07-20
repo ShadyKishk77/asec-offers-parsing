@@ -151,9 +151,15 @@ def validate_and_enrich(
         if item.total_amount is not None and item.total_amount > 0 and item.price > 0:
             expected_total_post_tax = (item.price * item.quantity) + (item.tax or 0.0)
             if abs(expected_total_post_tax - item.total_amount) > RECONCILIATION_TOLERANCE:
+                # Check 1: Direct ratio (item.total_amount - tax) / price
                 pre_tax_total_stated = item.total_amount - (item.tax or 0.0)
                 ratio = pre_tax_total_stated / item.price
                 nearest_int = round(ratio)
+                
+                # Check 2: 14% VAT included total_amount / 1.14 / price
+                ratio_vat14 = (item.total_amount / 1.14) / item.price
+                nearest_int_vat14 = round(ratio_vat14)
+
                 if nearest_int > 0 and abs(ratio - nearest_int) <= 0.05:
                     logger.info(
                         "[Correction] Auto-corrected quantity from %s to %s in '%s' "
@@ -161,6 +167,15 @@ def validate_and_enrich(
                         item.quantity, float(nearest_int), source_file, item.total_amount, item.tax, item.price, round(ratio, 4), float(nearest_int)
                     )
                     corrected_quantity = float(nearest_int)
+                elif nearest_int_vat14 > 0 and abs(ratio_vat14 - nearest_int_vat14) <= 0.05:
+                    logger.info(
+                        "[Correction] Auto-corrected quantity from %s to %s in '%s' "
+                        "because total_amount (%s) incl. 14%% VAT / unit price (%s) = %s is close to %s",
+                        item.quantity, float(nearest_int_vat14), source_file, item.total_amount, item.price, round(ratio_vat14, 4), float(nearest_int_vat14)
+                    )
+                    corrected_quantity = float(nearest_int_vat14)
+                    if (item.tax or 0.0) == 0.0:
+                        item.tax = round(item.total_amount - (item.total_amount / 1.14), 2)
                 else:
                     extra_issues.append(
                         f"price ({item.price}) * quantity ({item.quantity}) + tax ({item.tax}) != "
