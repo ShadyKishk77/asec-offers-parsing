@@ -20,14 +20,14 @@ from src.exporter import export_to_excel
 from src.schema import FlatRow
 
 # Setup basic configuration
+# Setup basic configuration
 st.set_page_config(
     page_title="ASEC Document Intelligence",
-    page_icon="📄",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Premium Styling
+# Professional Navy Blue Theme Styling
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
@@ -37,57 +37,58 @@ st.markdown("""
     }
 
     .stApp {
-        background: #F8FAFC;
+        background: #F4F6F9;
     }
 
-    /* Hero container styling */
+    /* Enterprise Navy Header */
     .hero-container {
-        background: linear-gradient(135deg, #0F172A 0%, #1E1B4B 50%, #312E81 100%);
-        border-radius: 20px;
-        padding: 3.2rem 3.5rem;
+        background: linear-gradient(135deg, #0B192C 0%, #1E3E62 60%, #000000 100%);
+        border-radius: 16px;
+        padding: 3rem 3.2rem;
         margin-bottom: 2rem;
-        color: white;
-        box-shadow: 0 25px 30px -5px rgba(15, 23, 42, 0.2), 0 10px 15px -5px rgba(15, 23, 42, 0.1);
-        border: 1px solid rgba(255, 255, 255, 0.12);
+        color: #FFFFFF;
+        box-shadow: 0 20px 25px -5px rgba(11, 25, 44, 0.25);
+        border: 1px solid rgba(255, 255, 255, 0.1);
         position: relative;
         overflow: hidden;
     }
     .hero-container::after {
         content: '';
         position: absolute;
-        top: -50%;
+        top: -40%;
         right: -10%;
-        width: 380px;
-        height: 380px;
-        background: radial-gradient(circle, rgba(99, 102, 241, 0.3) 0%, rgba(0,0,0,0) 70%);
+        width: 350px;
+        height: 350px;
+        background: radial-gradient(circle, rgba(56, 122, 223, 0.2) 0%, rgba(0,0,0,0) 70%);
         border-radius: 50%;
         pointer-events: none;
     }
     .hero-badge {
         display: inline-block;
-        background: rgba(99, 102, 241, 0.25);
-        color: #A5B4FC;
-        border: 1px solid rgba(165, 180, 252, 0.3);
-        padding: 0.35rem 1rem;
-        border-radius: 30px;
-        font-size: 0.78rem;
+        background: rgba(56, 122, 223, 0.2);
+        color: #93C5FD;
+        border: 1px solid rgba(147, 197, 253, 0.3);
+        padding: 0.35rem 0.95rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
         font-weight: 700;
         letter-spacing: 1.2px;
-        margin-bottom: 1.2rem;
+        margin-bottom: 1.1rem;
+        text-transform: uppercase;
     }
     .hero-container h1 {
         font-family: 'Outfit', sans-serif !important;
         color: #FFFFFF !important;
-        font-size: 2.4rem;
+        font-size: 2.3rem;
         font-weight: 700;
-        margin: 0 0 0.8rem 0;
-        letter-spacing: -0.8px;
+        margin: 0 0 0.75rem 0;
+        letter-spacing: -0.5px;
         line-height: 1.25;
     }
     .hero-container p {
-        color: #C7D2FE;
-        font-size: 1.08rem;
-        margin: 0 0 1.8rem 0;
+        color: #CBD5E1;
+        font-size: 1.05rem;
+        margin: 0 0 1.6rem 0;
         font-weight: 400;
         max-width: 780px;
         line-height: 1.6;
@@ -95,163 +96,149 @@ st.markdown("""
     .hero-pills {
         display: flex;
         flex-wrap: wrap;
-        gap: 0.65rem;
+        gap: 0.6rem;
     }
     .hero-pill {
-        background: rgba(255, 255, 255, 0.1);
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(255, 255, 255, 0.18);
-        color: #E0E7FF;
-        padding: 0.42rem 1rem;
+        background: rgba(255, 255, 255, 0.08);
+        backdrop-filter: blur(8px);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        color: #E2E8F0;
+        padding: 0.4rem 0.95rem;
         border-radius: 20px;
-        font-size: 0.84rem;
+        font-size: 0.82rem;
         font-weight: 500;
     }
 
-    /* Feature Cards Grid */
+    /* Feature Showcase Grid */
     .feature-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
         gap: 1.2rem;
-        margin-bottom: 2.2rem;
+        margin-bottom: 2rem;
     }
     .feature-card {
         background: #FFFFFF;
         border: 1px solid #E2E8F0;
-        border-radius: 14px;
-        padding: 1.4rem;
-        box-shadow: 0 4px 14px rgba(0,0,0,0.03);
+        border-radius: 12px;
+        padding: 1.35rem;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.02);
         transition: transform 0.2s ease, box-shadow 0.2s ease;
+        border-top: 3px solid #1E3E62;
     }
     .feature-card:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 10px 25px rgba(0,0,0,0.07);
-        border-color: #CBD5E1;
-    }
-    .feature-icon {
-        font-size: 1.8rem;
-        margin-bottom: 0.6rem;
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(0,0,0,0.06);
+        border-top-color: #008DDA;
     }
     .feature-card h3 {
-        font-size: 1.05rem;
+        font-size: 1rem;
         font-weight: 600;
-        color: #0F172A !important;
-        margin: 0 0 0.4rem 0;
+        color: #0B192C !important;
+        margin: 0 0 0.35rem 0;
     }
     .feature-card p {
-        font-size: 0.86rem;
+        font-size: 0.85rem;
         color: #64748B;
         margin: 0;
         line-height: 1.45;
     }
 
-    /* Primary action buttons */
+    /* Primary Navy Action Buttons */
     div.stButton > button:first-child {
-        background: linear-gradient(135deg, #4F46E5 0%, #3730A3 100%);
+        background: #1E3E62;
         color: white;
-        border-radius: 10px;
-        padding: 0.7rem 2.5rem;
+        border-radius: 8px;
+        padding: 0.65rem 2.2rem;
         font-weight: 600;
-        font-size: 1rem;
+        font-size: 0.95rem;
         border: none;
-        letter-spacing: 0.3px;
-        transition: all 0.25s ease;
-        box-shadow: 0 4px 14px rgba(79, 70, 229, 0.35);
+        letter-spacing: 0.2px;
+        transition: all 0.2s ease;
+        box-shadow: 0 4px 12px rgba(30, 62, 98, 0.25);
     }
     div.stButton > button:first-child:hover {
-        background: linear-gradient(135deg, #6366F1 0%, #4338CA 100%);
-        transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(79, 70, 229, 0.45);
+        background: #0B192C;
+        transform: translateY(-1px);
+        box-shadow: 0 6px 16px rgba(11, 25, 44, 0.35);
     }
 
-    /* Metric glassmorphic cards */
+    /* Metric Cards */
     .metric-card {
         background: #FFFFFF;
-        border-radius: 14px;
-        padding: 1.5rem 1.6rem;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.04);
+        border-radius: 12px;
+        padding: 1.4rem 1.5rem;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.03);
         border: 1px solid #E2E8F0;
-        border-top: 4px solid #4F46E5;
+        border-top: 4px solid #1E3E62;
         text-align: center;
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
-    }
-    .metric-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 10px 25px rgba(0,0,0,0.07);
     }
     .metric-card.warn {
-        border-top: 4px solid #F59E0B;
+        border-top: 4px solid #D97706;
     }
     .metric-card.good {
-        border-top: 4px solid #10B981;
+        border-top: 4px solid #059669;
     }
     .metric-label {
-        font-size: 0.76rem;
+        font-size: 0.75rem;
         font-weight: 700;
         color: #64748B;
         text-transform: uppercase;
         letter-spacing: 0.8px;
-        margin-bottom: 0.6rem;
+        margin-bottom: 0.5rem;
     }
     .metric-value {
         font-family: 'Outfit', sans-serif;
-        font-size: 2.1rem;
+        font-size: 2rem;
         font-weight: 700;
-        color: #0F172A;
+        color: #0B192C;
         line-height: 1;
     }
     .metric-value.warn { color: #D97706; }
     .metric-value.good { color: #059669; }
 
-    /* Status cards */
+    /* Status Cards */
     .status-card {
         background: #FFFFFF;
-        border-radius: 12px;
-        padding: 1.1rem 1.4rem;
-        margin-bottom: 0.75rem;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        border-radius: 10px;
+        padding: 1rem 1.3rem;
+        margin-bottom: 0.7rem;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.03);
         border: 1px solid #E2E8F0;
-        border-left: 5px solid #10B981;
-        transition: transform 0.15s ease;
-    }
-    .status-card:hover {
-        transform: translateX(3px);
+        border-left: 4px solid #059669;
     }
     .status-card h4 {
-        margin: 0 0 0.35rem 0;
-        font-size: 0.98rem;
+        margin: 0 0 0.3rem 0;
+        font-size: 0.95rem;
         font-weight: 600;
-        color: #0F172A;
+        color: #0B192C;
     }
     .status-card p {
         margin: 0;
-        font-size: 0.86rem;
+        font-size: 0.84rem;
         color: #64748B;
     }
     .status-card.flagged {
-        border-left-color: #F59E0B;
+        border-left-color: #D97706;
         background: #FFFBEB;
     }
     .status-card.error {
-        border-left-color: #EF4444;
+        border-left-color: #DC2626;
         background: #FEF2F2;
     }
-    .status-card.flagged h4 { color: #B45309; }
-    .status-card.error h4 { color: #B91C1C; }
 
-    /* Section label */
+    /* Section Label */
     .section-label {
-        font-size: 0.78rem;
+        font-size: 0.76rem;
         font-weight: 700;
         text-transform: uppercase;
-        letter-spacing: 1.2px;
-        color: #64748B;
-        margin-bottom: 0.9rem;
+        letter-spacing: 1.1px;
+        color: #475569;
+        margin-bottom: 0.85rem;
     }
 
-    /* Sidebar Styling */
+    /* Deep Navy Sidebar */
     section[data-testid="stSidebar"] {
-        background-color: #0F172A;
+        background-color: #0B192C;
         border-right: 1px solid #1E293B;
     }
     section[data-testid="stSidebar"] * {
@@ -264,60 +251,51 @@ st.markdown("""
         font-family: 'Outfit', sans-serif;
     }
     section[data-testid="stSidebar"] .stMarkdown hr {
-        border-color: #334155;
-    }
-    section[data-testid="stSidebar"] .stInfo {
-        background: rgba(30, 41, 59, 0.7);
-        border: 1px solid #334155;
-        border-radius: 10px;
+        border-color: #1E293B;
     }
 
     h1, h2, h3 {
-        color: #0F172A !important;
+        color: #0B192C !important;
         font-family: 'Outfit', sans-serif;
     }
     .stTabs [data-baseweb="tab"] {
         font-weight: 600;
-        font-size: 0.95rem;
+        font-size: 0.92rem;
         color: #475569;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# Front Landing Page Hero Banner
+# Executive Front Landing Page Banner
 st.markdown("""
 <div class="hero-container">
-    <div class="hero-badge">🤖 AI-POWERED DOCUMENT INTELLIGENCE</div>
-    <h1>Transform Unstructured Vendor PDFs into Actionable Procurement Reports</h1>
-    <p>Upload vendor quotes, invoices, and tender letters in Arabic & English. Extract line items, prices, 14% VAT, payment terms, and delivery schedules in seconds.</p>
+    <div class="hero-badge">Document Intelligence Platform</div>
+    <h1>Automated Vendor Quote & Invoice Extraction System</h1>
+    <p>Upload vendor quotes, invoices, and tender letters in Arabic and English. Automatically extract, structure, and export line items, prices, 14% VAT, payment terms, and delivery schedules.</p>
     <div class="hero-pills">
-        <span class="hero-pill">⚡ Cloud & Local LLM</span>
-        <span class="hero-pill">🌐 Multi-Language (Arabic + English)</span>
-        <span class="hero-pill">⚖️ 14% VAT & Math Check</span>
-        <span class="hero-pill">📊 Two-Sheet Excel Export</span>
-        <span class="hero-pill">📄 PDF Document Viewer</span>
+        <span class="hero-pill">Multi-Language OCR</span>
+        <span class="hero-pill">14% VAT Reconciliation</span>
+        <span class="hero-pill">Payment & Delivery Parsing</span>
+        <span class="hero-pill">Excel Export</span>
+        <span class="hero-pill">Document Viewer</span>
     </div>
 </div>
 
 <div class="feature-grid">
     <div class="feature-card">
-        <div class="feature-icon">🚀</div>
         <h3>Automated Line Extraction</h3>
-        <p>Extracts SKUs, item descriptions, quantities, unit prices, and currencies without manual entry.</p>
+        <p>Extracts SKUs, item descriptions, quantities, unit prices, and currencies without manual data entry.</p>
     </div>
     <div class="feature-card">
-        <div class="feature-icon">⚖️</div>
         <h3>Smart VAT & Math Check</h3>
         <p>Detects 14% inclusive/exclusive VAT in Terms & Conditions and reconciles line totals.</p>
     </div>
     <div class="feature-card">
-        <div class="feature-icon">💳</div>
         <h3>Payment & Delivery Parsing</h3>
         <p>Identifies payment terms, deferred credit windows, and lead time availability schedules.</p>
     </div>
     <div class="feature-card">
-        <div class="feature-icon">📄</div>
-        <h3>Chrome-Safe PDF Preview</h3>
+        <h3>Document Viewer</h3>
         <p>Inspect original source documents page-by-page directly alongside extracted data tables.</p>
     </div>
 </div>
@@ -339,19 +317,13 @@ if "extraction_done" not in st.session_state:
 
 # Sidebar configurations
 with st.sidebar:
-    st.markdown("## ASEC Document Intelligence")
+    st.markdown("## System Configuration")
     st.markdown("---")
     
-    # LLM Settings & Connection Diagnostics
-    st.markdown("### LLM Provider Settings")
     from src.llm_client import _OLLAMA_HOST, _MODEL_NAME, _OR_API_KEY, _OR_MODEL
     
-    ui_or_key = st.text_input(
-        "OpenRouter API Key (optional)",
-        value=_OR_API_KEY,
-        type="password",
-        help="If set, uses OpenRouter Cloud API instead of local Ollama.",
-    )
+    # API Key is read securely from environment / secrets in the background
+    ui_or_key = _OR_API_KEY
     
     available_or_models = [
         "meta-llama/llama-3.3-70b-instruct",
@@ -366,59 +338,31 @@ with st.sidebar:
         default_idx = available_or_models.index(_OR_MODEL)
 
     ui_or_model = st.selectbox(
-        "OpenRouter Model",
+        "AI Engine Model",
         options=available_or_models,
         index=default_idx,
-        help="Select model when using OpenRouter API.",
+        help="Select the AI model engine for document processing.",
     )
     
     active_or_key = (ui_or_key or "").strip()
     if active_or_key:
-        st.info("⚡ Using **OpenRouter Cloud API**")
-        st.caption(f"**Model:** `{ui_or_model}`")
+        st.info("Status: OpenRouter Cloud API (Connected)")
     else:
-        st.info("💻 Using **Ollama (Local)**")
-        st.caption(f"**Target Host:** `{_OLLAMA_HOST}`")
-        st.caption(f"**Target Model:** `{_MODEL_NAME}`")
+        st.info("Status: Local Engine (Ollama Active)")
     
-    if st.button("Test Connection"):
-        import httpx
-        if active_or_key:
-            try:
-                res = httpx.get(
-                    "https://openrouter.ai/api/v1/auth/key",
-                    headers={"Authorization": f"Bearer {active_or_key}"},
-                    timeout=5.0
-                )
-                if res.status_code == 200:
-                    st.success(f"OpenRouter API connected! Model: {ui_or_model}")
-                else:
-                    st.error(f"OpenRouter returned status {res.status_code}: {res.text}")
-            except Exception as err:
-                st.error(f"Failed to connect to OpenRouter: {err}")
-        else:
-            try:
-                res = httpx.get(_OLLAMA_HOST, timeout=5.0)
-                if res.status_code == 200 or "Ollama is running" in res.text:
-                    st.success("Ollama is reachable!")
-                else:
-                    st.error(f"Ollama returned status: {res.status_code}")
-            except Exception as err:
-                st.error(f"Failed to connect to Ollama: {err}")
-            
     st.markdown("---")
-    st.markdown("### Capabilities")
-    st.markdown("- AI-powered data extraction")
-    st.markdown("- Scanned document support")
-    st.markdown("- Arabic & English documents")
-    st.markdown("- EGP & USD currency detection")
-    st.markdown("- Confidence-based quality review")
+    st.markdown("### System Features")
+    st.markdown("• Multi-language PDF text extraction")
+    st.markdown("• Scanned document OCR processing")
+    st.markdown("• Automatic 14% VAT reconciliation")
+    st.markdown("• EGP & USD currency parsing")
+    st.markdown("• Two-sheet structured Excel export")
     st.markdown("---")
-    st.markdown("### How to use")
-    st.markdown("1. Upload your PDF documents below.")
-    st.markdown("2. Click **Run Extraction**.")
-    st.markdown("3. Review and correct any flagged rows.")
-    st.markdown("4. Download the structured Excel report.")
+    st.markdown("### User Instructions")
+    st.markdown("1. Upload PDF document files.")
+    st.markdown("2. Click **Process Documents**.")
+    st.markdown("3. Review extracted data tables.")
+    st.markdown("4. Download the Excel report.")
     st.markdown("---")
     st.caption("Processes multiple files simultaneously.")
 
@@ -595,7 +539,7 @@ if st.session_state.extraction_done and st.session_state.all_rows:
     st.write("")
     st.write("")
     st.markdown('<p class="section-label">Extracted Data & Document Viewer</p>', unsafe_allow_html=True)
-    tab1, tab2, tab3 = st.tabs(["Line Items", "Document Summary", "PDF Preview 📄"])
+    tab1, tab2, tab3 = st.tabs(["Line Items", "Document Summary", "Document Preview"])
 
     with tab1:
         st.caption("Review and edit the extracted data below. Any changes you make will be reflected in the downloaded report.")
@@ -677,11 +621,11 @@ if st.session_state.extraction_done and st.session_state.all_rows:
         st.dataframe(df_docs, use_container_width=True)
 
     with tab3:
-        st.markdown("### 📄 PDF Document Viewer")
+        st.markdown("### Document Viewer")
         unique_files = sorted(list(set(df_items["Source File"].unique())))
         if unique_files:
             pv_col1, pv_col2 = st.columns([3, 1])
-            selected_pdf = pv_col1.selectbox("Select PDF Document to View", options=unique_files)
+            selected_pdf = pv_col1.selectbox("Select Document to View", options=unique_files)
             run_dir_path = Path(st.session_state.run_dir) if st.session_state.run_dir else TEMP_DIR
             target_pdf_path = run_dir_path / selected_pdf
             
@@ -691,7 +635,7 @@ if st.session_state.extraction_done and st.session_state.all_rows:
                     pdf_bytes = f.read()
                 pv_col2.write("")
                 pv_col2.write("")
-                pv_col2.download_button("📥 Download PDF", data=pdf_bytes, file_name=selected_pdf, mime="application/pdf", use_container_width=True)
+                pv_col2.download_button("Download Document", data=pdf_bytes, file_name=selected_pdf, mime="application/pdf", use_container_width=True)
                 
                 try:
                     with pdfplumber.open(target_pdf_path) as pdf:
@@ -705,7 +649,7 @@ if st.session_state.extraction_done and st.session_state.all_rows:
                         page_img = page.to_image(resolution=150).original
                         st.image(page_img, use_container_width=True, caption=f"Document: {selected_pdf} — Page {selected_page_num} of {total_pages}")
                 except Exception as err:
-                    st.error(f"Could not render PDF preview: {err}")
+                    st.error(f"Could not render document preview: {err}")
             else:
                 st.warning(f"File '{selected_pdf}' is not available for preview.")
     
