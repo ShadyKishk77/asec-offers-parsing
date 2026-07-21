@@ -202,47 +202,27 @@ def _coerce_numeric(val: any) -> float:
 def _clean_company_name(name: str, filename: str) -> str:
     """Fallback vendor name cleanup if recipient/client is extracted as vendor."""
     from pathlib import Path
+    import re
+    
     cleaned = name.strip()
     name_lower = cleaned.lower()
     
-    # If the company name contains ASEC, Arab Swiss, etc., it's a recipient error
+    # If the company name contains client keywords or is empty, extract vendor dynamically
     is_recipient_error = (
         "asec" in name_lower or
         "arab swiss" in name_lower or
-        name_lower == "client" or
-        name_lower == "recipient" or
-        not name_lower
+        name_lower in {"client", "recipient", "customer", "invoice", "quote", ""}
     )
     
     if is_recipient_error:
-        fn_lower = filename.lower()
-        
-        # Check for known vendors in the filename
-        if "techsphere" in fn_lower:
-            return "Techsphere"
-        elif "techlink" in fn_lower:
-            return "Techlink"
-        elif "elite" in fn_lower:
-            return "Elite"
-        elif "digital planets" in fn_lower or "digitalplanets" in fn_lower:
-            return "Digital Planets"
-        elif "fortinet" in fn_lower or "forti" in fn_lower:
-            return "Fortinet"
-        elif "mit" in fn_lower:
-            return "MISR Information Technology (MIT)"
-        elif "3m" in fn_lower:
-            return "3M International"
-            
-        # Generic filename cleanup fallback:
-        # e.g. "Forti Renewal offer(Techlink)1.pdf" -> extract words and clean
-        import re
+        # Dynamic filename cleaning: extracts actual vendor name without hardcoded lists
         base = Path(filename).stem
         base_clean = re.sub(r'[\d_\-\(\)\.\,\+]+', ' ', base)
         words = base_clean.split()
-        ignore_words = {"offer", "renewal", "quote", "invoice", "client", "customer", "asec", "holding", "engineering"}
+        ignore_words = {"offer", "renewal", "quote", "invoice", "client", "customer", "asec", "holding", "engineering", "pdf"}
         filtered_words = [w for w in words if w.lower() not in ignore_words]
         if filtered_words:
-            return " ".join(filtered_words)
+            return " ".join(filtered_words).title()
             
     return cleaned
 

@@ -72,47 +72,21 @@ def _collect_issues(item: LineItem, computed_total: float) -> list[str]:
 
 def _clean_ocr_item_name(item_name: str, sku: str | None) -> str:
     """
-    Clean up English-character phonetic garbles from Arabic scans.
-    Does not rely on specific file names or documents.
+    Clean up item names dynamically without hardcoded product titles.
+    Drops spec-only fragment rows (e.g. standalone spec words without product name).
     """
     import re
     name_clean = item_name.lower().strip()
-    sku_clean = (sku or "").upper().replace(" ", "").replace("-", "")
 
-    # Clean and split into words to drop spec-only rows
+    # Clean and split into words to drop spec-only fragment rows
     words = set(re.findall(r'[\u0600-\u06FFa-zA-Z]+', name_clean))
     spec_words = {"بارد", "ساخن", "صاخن", "صأن", "صان", "سخن", "برد", "سبليت", "اسبليت", "بلازما", "ديجيتال", "انفرتر", "موديل", "model", "split"}
     if words and words.issubset(spec_words):
-        return ""  # Signal: this row should be dropped (spec fragment only)
+        return ""  # Signal: this row is a specification fragment only, drop it
 
-    # Check for Carrier/Fresh 5 HP Split AC garble patterns:
-    # e.g., 'gale yale ab glas', 'yale ab glas carrier', '5 jy is ps', 'كارية', 'كاريير'
-    is_carrier_ac_5hp = (
-        ("53qhet36n" in sku_clean) or
-        (
-            (
-                ("gale" in name_clean and "glas" in name_clean) or
-                ("yale" in name_clean and "glas" in name_clean) or
-                ("كاريير" in name_clean) or
-                ("كارية" in name_clean) or
-                ("carrier" in name_clean)
-            )
-            and ("5" in name_clean or "٥" in name_clean)
-        )
-    )
-    if is_carrier_ac_5hp:
-        return "تكييف كاريير 5 حصان اسبليت"
-
-    # Check for Fresh AC garble patterns from RTL Arabic PDFs:
-    # e.g., 'اجيحزة فريش 5حصان', 'اجيحيز فريش 5 حصان'
-    is_fresh_ac = (
-        ("فريش" in name_clean and "حصان" in name_clean) or
-        ("fresh" in name_clean and "hp" in name_clean)
-    )
-    if is_fresh_ac and ("5" in name_clean or "٥" in name_clean):
-        return "تكييف فريش 5 حصان بارد وساخن"
-
-    return item_name
+    # Normalize excessive spaces dynamically
+    cleaned = re.sub(r'\s+', ' ', item_name).strip()
+    return cleaned
 
 
 # ---------------------------------------------------------------------------
@@ -151,14 +125,17 @@ def validate_and_enrich(
         if item.total_amount is not None and item.total_amount > 0 and item.price > 0:
             expected_total_post_tax = (item.price * item.quantity) + (item.tax or 0.0)
             if abs(expected_total_post_tax - item.total_amount) > RECONCILIATION_TOLERANCE:
+                vat_pct = doc.vat_rate if (doc.vat_rate and doc.vat_rate > 0) else 14.0
+                vat_factor = 1.0 + (vat_pct / 100.0)
+
                 # Check 1: Direct ratio (item.total_amount - tax) / price
                 pre_tax_total_stated = item.total_amount - (item.tax or 0.0)
                 ratio = pre_tax_total_stated / item.price
                 nearest_int = round(ratio)
                 
-                # Check 2: 14% VAT included total_amount / 1.14 / price
-                ratio_vat14 = (item.total_amount / 1.14) / item.price
-                nearest_int_vat14 = round(ratio_vat14)
+                # Check 2: Dynamic VAT included total_amount / vat_factor / price
+                ratio_vat = (item.total_amount / vat_factor) / item.price
+                nearest_int_vat = round(ratio_vat)
 
                 if nearest_int > 0 and abs(ratio - nearest_int) <= 0.05:
                     logger.info(
@@ -167,15 +144,15 @@ def validate_and_enrich(
                         item.quantity, float(nearest_int), source_file, item.total_amount, item.tax, item.price, round(ratio, 4), float(nearest_int)
                     )
                     corrected_quantity = float(nearest_int)
-                elif nearest_int_vat14 > 0 and abs(ratio_vat14 - nearest_int_vat14) <= 0.05:
+                elif nearest_int_vat > 0 and abs(ratio_vat - nearest_int_vat) <= 0.05:
                     logger.info(
                         "[Correction] Auto-corrected quantity from %s to %s in '%s' "
-                        "because total_amount (%s) incl. 14%% VAT / unit price (%s) = %s is close to %s",
-                        item.quantity, float(nearest_int_vat14), source_file, item.total_amount, item.price, round(ratio_vat14, 4), float(nearest_int_vat14)
+                        "because total_amount (%s) incl. VAT / unit price (%s) = %s is close to %s",
+                        item.quantity, float(nearest_int_vat), source_file, item.total_amount, item.price, round(ratio_vat, 4), float(nearest_int_vat)
                     )
-                    corrected_quantity = float(nearest_int_vat14)
+                    corrected_quantity = float(nearest_int_vat)
                     if (item.tax or 0.0) == 0.0:
-                        item.tax = round(item.total_amount - (item.total_amount / 1.14), 2)
+                        item.tax = round(item.total_amount - (item.total_amount / vat_factor), 2)
                 else:
                     extra_issues.append(
                         f"price ({item.price}) * quantity ({item.quantity}) + tax ({item.tax}) != "
@@ -209,29 +186,39 @@ def validate_and_enrich(
                     corrected_tax, source_file, idx, item.total_amount, line_val
                 )
 
-        # Strategy 2: Document-level vat_rate (e.g. 14%, 5%, 15%) or total_tax allocation
+        # Strategy 2: Document-level total_tax allocation if per-line tax was omitted
+        if corrected_tax == 0.0 and doc.total_tax is not None and doc.total_tax > 0:
+            num_items = len(doc.line_items) if doc.line_items else 1
+            corrected_tax = round(doc.total_tax / num_items, 2)
+            logger.info(
+                "[VAT Reconciliation] Allocated overall document VAT (%s) -> per-line VAT (%s) for '%s' row %d",
+                doc.total_tax, corrected_tax, source_file, idx
+            )
+
+        # Strategy 3: Check Terms & Conditions / Document notes for 14% VAT (inclusive vs exclusive)
         if corrected_tax == 0.0 and item.price > 0:
             terms_text = (doc.payment_terms or "").lower()
-            vat_rate_pct = doc.vat_rate if doc.vat_rate and doc.vat_rate > 0 else 14.0
+            vat_rate_pct = doc.vat_rate if (doc.vat_rate and doc.vat_rate > 0) else 14.0
             vat_multiplier = 1.0 + (vat_rate_pct / 100.0)
 
-            # Check if terms indicate inclusive tax (VAT/tax/ضريبة)
-            has_vat_term = any(k in terms_text for k in ["vat", "tax", "ضريبة", "ض.ق.م"])
-            is_inclusive = has_vat_term and any(k in terms_text for k in ["include", "includes", "شامل", "شاملة"])
+            # Check if terms/notes mention VAT, tax, 14%, or ضريبة
+            has_vat_note = any(k in terms_text for k in ["vat", "tax", "ضريبة", "ض.ق.م", "14%", "14 %"])
+            is_inclusive = has_vat_note and any(k in terms_text for k in ["include", "includes", "شامل", "شاملة"])
+            is_exclusive = has_vat_note and any(k in terms_text for k in ["exclude", "excludes", "subject", "plus", "extra", "تضاف", "غير شامل"])
 
             if is_inclusive:
-                # Prices include VAT -> Extract VAT component from stated price
+                # Prices include 14% VAT -> Extract VAT component from stated price
                 corrected_tax = round(line_val - (line_val / vat_multiplier), 2)
                 corrected_price = round(item.price / vat_multiplier, 6)
                 logger.info(
-                    "[VAT Reconciliation] Extracted %s%% inclusive VAT (%s) for '%s' row %d based on terms",
+                    "[VAT Reconciliation] Extracted %s%% inclusive VAT (%s) for '%s' row %d based on terms note",
                     vat_rate_pct, corrected_tax, source_file, idx
                 )
-            elif item.total_amount is not None and abs(item.total_amount - (line_val * vat_multiplier)) <= RECONCILIATION_TOLERANCE:
-                # Stated total is pre-tax + VAT rate
+            elif is_exclusive or has_vat_note or (item.total_amount is not None and abs(item.total_amount - (line_val * vat_multiplier)) <= RECONCILIATION_TOLERANCE):
+                # Prices exclude 14% VAT -> Add 14% VAT
                 corrected_tax = round(line_val * (vat_rate_pct / 100.0), 2)
                 logger.info(
-                    "[VAT Reconciliation] Calculated %s%% exclusive VAT (%s) for '%s' row %d",
+                    "[VAT Reconciliation] Calculated %s%% exclusive VAT (%s) for '%s' row %d based on terms note",
                     vat_rate_pct, corrected_tax, source_file, idx
                 )
 
