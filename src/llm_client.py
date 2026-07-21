@@ -267,7 +267,13 @@ def _call_openrouter_api(api_key: str, model_name: str, system_prompt: str, user
         "temperature": 0,
         "max_tokens": 800,
     }
-    response = httpx.post(url, headers=headers, json=payload, timeout=60.0)
+    try:
+        response = httpx.post(url, headers=headers, json=payload, timeout=httpx.Timeout(180.0, connect=15.0))
+    except (httpx.ReadTimeout, httpx.ConnectTimeout) as exc:
+        raise RuntimeError(
+            f"Cloud API request timed out for model '{model_name}'. "
+            "Please try processing again or select a local model."
+        ) from exc
     if response.status_code == 402:
         raise RuntimeError(
             "API Credit Limit Reached (HTTP 402). "
