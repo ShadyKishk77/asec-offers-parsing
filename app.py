@@ -27,30 +27,32 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Professional Navy Blue Theme Styling
+# Ultra-Premium Dark Glassmorphic Theme Styling
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
 
     html, body, [class*="css"] {
-        font-family: 'Inter', sans-serif;
+        font-family: 'Plus Jakarta Sans', sans-serif;
     }
 
     .stApp {
-        background: #F4F6F9;
+        background: #07090E;
+        color: #F8FAFC;
     }
 
-    /* Enterprise Navy Header */
+    /* Glassmorphic Header */
     .hero-container {
-        background: linear-gradient(135deg, #0B192C 0%, #1E3E62 60%, #000000 100%);
-        border-radius: 16px;
-        padding: 3rem 3.2rem;
+        background: linear-gradient(135deg, rgba(15, 23, 42, 0.85) 0%, rgba(30, 41, 59, 0.95) 100%);
+        border-radius: 20px;
+        padding: 2.8rem 3rem;
         margin-bottom: 2rem;
         color: #FFFFFF;
-        box-shadow: 0 20px 25px -5px rgba(11, 25, 44, 0.25);
-        border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 20px 40px -10px rgba(6, 182, 212, 0.15);
+        border: 1px solid rgba(6, 182, 212, 0.25);
         position: relative;
         overflow: hidden;
+        backdrop-filter: blur(16px);
     }
     .hero-container::after {
         content: '';
@@ -59,15 +61,15 @@ st.markdown("""
         right: -10%;
         width: 350px;
         height: 350px;
-        background: radial-gradient(circle, rgba(56, 122, 223, 0.2) 0%, rgba(0,0,0,0) 70%);
+        background: radial-gradient(circle, rgba(6, 182, 212, 0.25) 0%, rgba(0,0,0,0) 70%);
         border-radius: 50%;
         pointer-events: none;
     }
     .hero-badge {
         display: inline-block;
-        background: rgba(56, 122, 223, 0.2);
-        color: #93C5FD;
-        border: 1px solid rgba(147, 197, 253, 0.3);
+        background: rgba(6, 182, 212, 0.15);
+        color: #38BDF8;
+        border: 1px solid rgba(56, 189, 248, 0.35);
         padding: 0.35rem 0.95rem;
         border-radius: 20px;
         font-size: 0.75rem;
@@ -78,22 +80,16 @@ st.markdown("""
     }
     .hero-container h1 {
         font-family: 'Outfit', sans-serif !important;
+        font-weight: 800 !important;
+        font-size: 2.4rem !important;
         color: #FFFFFF !important;
-        font-size: 2.3rem;
-        font-weight: 700;
-        margin: 0 0 0.75rem 0;
         letter-spacing: -0.5px;
-        line-height: 1.25;
+        margin-bottom: 0.8rem !important;
     }
     .hero-container p {
-        color: #CBD5E1;
+        color: #94A3B8;
         font-size: 1.05rem;
-        margin: 0 0 1.6rem 0;
-        font-weight: 400;
-        max-width: 780px;
         line-height: 1.6;
-    }
-    .hero-pills {
         display: flex;
         flex-wrap: wrap;
         gap: 0.6rem;
