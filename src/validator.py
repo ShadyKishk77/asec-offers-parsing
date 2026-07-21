@@ -171,67 +171,74 @@ def validate_and_enrich(
             )
             corrected_tax = 0.0
 
-        # Calculate total pre-tax subtotal across all items in document for proportional allocation
+        # --- Smart Dynamic Tax & VAT Reconciliation Engine ---
+        # 1. Calculate total pre-tax subtotal across all items for proportional multi-item allocation
         total_doc_subtotal = sum((it.price * it.quantity) for it in doc.line_items if it.price and it.quantity)
         line_val = item.price * corrected_quantity
         corrected_price = item.price
 
-        # Strategy 1: Stated total_amount exceeds (price * quantity) -> difference is VAT/Tax
-        if corrected_tax == 0.0 and item.total_amount is not None and item.total_amount > line_val:
+        # Detect Tax Profile Parameters
+        vat_rate_pct = doc.vat_rate if (doc.vat_rate is not None and doc.vat_rate >= 0) else 14.0
+        vat_multiplier = 1.0 + (vat_rate_pct / 100.0)
+
+        terms_text = (doc.payment_terms or "").lower()
+        has_vat_note = any(k in terms_text for k in ["vat", "tax", "ضريبة", "ض.ق.م", "14%", "14 %", "5%", "15%"])
+        is_exempt = any(k in terms_text for k in ["exempt", "freezone", "0%", "معفاة", "معفي", "منطقة حرة"]) or (doc.vat_rate == 0.0)
+
+        is_inclusive_term = has_vat_note and any(k in terms_text for k in ["include", "includes", "شامل", "شاملة"])
+        is_exclusive_term = has_vat_note and any(k in terms_text for k in ["exclude", "excludes", "subject", "plus", "extra", "تضاف", "غير شامل"])
+
+        # Check if stated total_amount matches pre-tax line_val (inclusive) or pre-tax * vat_multiplier (exclusive)
+        stated_total_matches_line_val = (
+            item.total_amount is not None and abs(item.total_amount - line_val) <= RECONCILIATION_TOLERANCE
+        )
+        stated_total_matches_post_tax = (
+            item.total_amount is not None and abs(item.total_amount - (line_val * vat_multiplier)) <= RECONCILIATION_TOLERANCE
+        )
+
+        # Profile A: Explicit Tax extracted per-line (Table already has tax column)
+        if corrected_tax > 0.0:
+            logger.info(
+                "[Tax Profile A] Retained explicit per-line tax (%s) for '%s' row %d",
+                corrected_tax, source_file, idx
+            )
+        # Profile B: Tax Exempt / 0% VAT
+        elif is_exempt:
+            corrected_tax = 0.0
+            logger.info("[Tax Profile B] Tax exempt / 0%% VAT applied for '%s' row %d", source_file, idx)
+        # Profile C: Stated Total Exceeds Line Subtotal (Implied Stated Difference)
+        elif item.total_amount is not None and item.total_amount > line_val and not stated_total_matches_line_val:
             implied_vat = round(item.total_amount - line_val, 2)
             if implied_vat > 0:
                 corrected_tax = implied_vat
                 logger.info(
-                    "[VAT Reconciliation] Dynamically inferred monetary VAT/Tax (%s) for '%s' row %d "
-                    "(Stated Total %s - Stated Pre-tax Subtotal %s)",
+                    "[Tax Profile C] Inferred stated monetary tax (%s) for '%s' row %d (Total %s - Subtotal %s)",
                     corrected_tax, source_file, idx, item.total_amount, line_val
                 )
-
-        # Strategy 2: Document-level total_tax proportional allocation across multi-item documents
-        if corrected_tax == 0.0 and doc.total_tax is not None and doc.total_tax > 0:
+        # Profile D: Document-Level Summary Tax (Proportional Multi-Item Allocation)
+        elif doc.total_tax is not None and doc.total_tax > 0:
             weight = (line_val / total_doc_subtotal) if total_doc_subtotal > 0 else (1.0 / max(1, len(doc.line_items)))
             corrected_tax = round(doc.total_tax * weight, 2)
             logger.info(
-                "[VAT Reconciliation] Proportionally allocated document VAT (%s * %.4f) -> per-line VAT (%s) for '%s' row %d",
+                "[Tax Profile D] Proportionally allocated document summary tax (%s * %.4f = %s) for '%s' row %d",
                 doc.total_tax, weight, corrected_tax, source_file, idx
             )
-
-        # Strategy 3: Check Terms & Conditions / Document notes for 14% VAT (inclusive vs exclusive)
-        if corrected_tax == 0.0 and item.price > 0:
-            terms_text = (doc.payment_terms or "").lower()
-            vat_rate_pct = doc.vat_rate if (doc.vat_rate and doc.vat_rate > 0) else 14.0
-            vat_multiplier = 1.0 + (vat_rate_pct / 100.0)
-
-            has_vat_note = any(k in terms_text for k in ["vat", "tax", "ضريبة", "ض.ق.م", "14%", "14 %"])
-            is_inclusive_term = has_vat_note and any(k in terms_text for k in ["include", "includes", "شامل", "شاملة"])
-            is_exclusive_term = has_vat_note and any(k in terms_text for k in ["exclude", "excludes", "subject", "plus", "extra", "تضاف", "غير شامل"])
-
-            # Check if stated total_amount matches pre-tax line_val (indicates inclusive price) or pre-tax * 1.14 (exclusive)
-            stated_total_matches_line_val = (
-                item.total_amount is not None and abs(item.total_amount - line_val) <= RECONCILIATION_TOLERANCE
-            )
-            stated_total_matches_post_tax = (
-                item.total_amount is not None and abs(item.total_amount - (line_val * vat_multiplier)) <= RECONCILIATION_TOLERANCE
-            )
-
+        # Profile E: Inclusive Tax (Price Decomposition without Double Taxation)
+        elif item.price > 0 and (is_inclusive_term or stated_total_matches_line_val or (has_vat_note and not is_exclusive_term and not stated_total_matches_post_tax)):
             pre_tax_candidate = item.price / vat_multiplier
-            is_clean_pre_tax = (abs(pre_tax_candidate - round(pre_tax_candidate)) <= 0.08)
-
-            if is_inclusive_term or stated_total_matches_line_val or (has_vat_note and is_clean_pre_tax and not is_exclusive_term):
-                # Prices are inclusive -> Decompose stated price into pre-tax Unit Price and VAT Tax component
-                corrected_price = round(pre_tax_candidate, 2)
-                corrected_tax = round(line_val - (corrected_price * corrected_quantity), 2)
-                logger.info(
-                    "[VAT Reconciliation] Decomposed %s%% inclusive price (%s -> Pre-tax Unit Price %s, VAT %s) for '%s' row %d",
-                    vat_rate_pct, item.price, corrected_price, corrected_tax, source_file, idx
-                )
-            elif is_exclusive_term or stated_total_matches_post_tax:
-                # Prices exclude VAT -> Calculate exclusive VAT and add to pre-tax unit price
-                corrected_tax = round(line_val * (vat_rate_pct / 100.0), 2)
-                logger.info(
-                    "[VAT Reconciliation] Calculated %s%% exclusive VAT (%s) for '%s' row %d based on terms note",
-                    vat_rate_pct, corrected_tax, source_file, idx
-                )
+            corrected_price = round(pre_tax_candidate, 2)
+            corrected_tax = round(line_val - (corrected_price * corrected_quantity), 2)
+            logger.info(
+                "[Tax Profile E] Decomposed %s%% inclusive price (%s -> Pre-tax %s, VAT %s) for '%s' row %d",
+                vat_rate_pct, item.price, corrected_price, corrected_tax, source_file, idx
+            )
+        # Profile F: Exclusive Tax (Tax Addition on Pre-Tax Base Price)
+        elif item.price > 0 and (is_exclusive_term or stated_total_matches_post_tax):
+            corrected_tax = round(line_val * (vat_rate_pct / 100.0), 2)
+            logger.info(
+                "[Tax Profile F] Calculated %s%% exclusive VAT (%s) for '%s' row %d",
+                vat_rate_pct, corrected_tax, source_file, idx
+            )
 
         # --- Computed field ---
         computed_total = round((corrected_price * corrected_quantity) + corrected_tax, 6)
