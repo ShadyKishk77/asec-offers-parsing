@@ -207,16 +207,20 @@ def validate_and_enrich(
             is_inclusive = has_vat_note and any(k in terms_text for k in ["include", "includes", "شامل", "شاملة"])
             is_exclusive = has_vat_note and any(k in terms_text for k in ["exclude", "excludes", "subject", "plus", "extra", "تضاف", "غير شامل"])
 
-            if is_inclusive:
-                # Prices include 14% VAT -> Extract VAT component from stated price
-                corrected_tax = round(line_val - (line_val / vat_multiplier), 2)
-                corrected_price = round(item.price / vat_multiplier, 6)
+            # Check if stated price is an inclusive price that decomposes cleanly to a whole pre-tax unit price
+            pre_tax_candidate = item.price / vat_multiplier
+            is_clean_pre_tax = (abs(pre_tax_candidate - round(pre_tax_candidate)) <= 0.08)
+
+            if is_inclusive or (has_vat_note and is_clean_pre_tax):
+                # Stated price is post-tax inclusive -> Extract pre-tax Unit Price and VAT Tax amount
+                corrected_price = round(pre_tax_candidate, 2)
+                corrected_tax = round(line_val - (corrected_price * corrected_quantity), 2)
                 logger.info(
-                    "[VAT Reconciliation] Extracted %s%% inclusive VAT (%s) for '%s' row %d based on terms note",
-                    vat_rate_pct, corrected_tax, source_file, idx
+                    "[VAT Reconciliation] Decomposed %s%% inclusive price (%s -> Pre-tax Unit Price %s, VAT %s) for '%s' row %d",
+                    vat_rate_pct, item.price, corrected_price, corrected_tax, source_file, idx
                 )
             elif is_exclusive or has_vat_note or (item.total_amount is not None and abs(item.total_amount - (line_val * vat_multiplier)) <= RECONCILIATION_TOLERANCE):
-                # Prices exclude 14% VAT -> Add 14% VAT
+                # Prices exclude VAT -> Add VAT to pre-tax price
                 corrected_tax = round(line_val * (vat_rate_pct / 100.0), 2)
                 logger.info(
                     "[VAT Reconciliation] Calculated %s%% exclusive VAT (%s) for '%s' row %d based on terms note",
@@ -274,7 +278,7 @@ def validate_and_enrich(
             sku=item.sku,
             item_name=cleaned_name,
             description=item.description,
-            price=item.price,
+            price=corrected_price,
             quantity=corrected_quantity,
             tax=corrected_tax,
             total_amount=item.total_amount,
