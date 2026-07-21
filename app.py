@@ -326,10 +326,11 @@ with st.sidebar:
     ui_or_key = _OR_API_KEY
     
     available_or_models = [
+        "moonshotai/Kimi-K2.6",
+        "google/gemini-2.5-flash-lite",
         "openai/gpt-4o-mini",
-        "google/gemini-flash-1.5",
-        "meta-llama/llama-3.3-70b-instruct",
         "deepseek/deepseek-chat",
+        "meta-llama/llama-3.3-70b-instruct",
         "qwen/qwen-2.5-72b-instruct",
     ]
     

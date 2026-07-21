@@ -14,7 +14,7 @@ validation stage (one FlatRow per LineItem per document).
 from __future__ import annotations
 
 from typing import Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 # ---------------------------------------------------------------------------
@@ -64,7 +64,8 @@ class LineItem(BaseModel):
 class DocumentExtract(BaseModel):
     """Top-level structure returned by the LLM for a single PDF."""
 
-    company_name: str = Field(
+    company_name: Optional[str] = Field(
+        default="Unknown Vendor",
         description="Name of the vendor / issuing company on the document."
     )
     date: Optional[str] = Field(
@@ -75,7 +76,7 @@ class DocumentExtract(BaseModel):
             "Null if no date appears in the document."
         )
     )
-    currency: str = Field(
+    currency: Optional[str] = Field(
         default="EGP",
         description="Currency of the document. Must be either 'EGP' or 'USD'. Defaults to 'EGP' if not stated."
     )
@@ -102,6 +103,16 @@ class DocumentExtract(BaseModel):
     line_items: list[LineItem] = Field(
         description="All product or service line items found in the document."
     )
+
+    @field_validator("currency", mode="before")
+    @classmethod
+    def default_currency(cls, v):
+        return v if v else "EGP"
+
+    @field_validator("company_name", mode="before")
+    @classmethod
+    def default_company_name(cls, v):
+        return v if v else "Unknown Vendor"
 
 
 # ---------------------------------------------------------------------------

@@ -46,8 +46,15 @@ logger = logging.getLogger(__name__)
 _OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
 _MODEL_NAME  = os.getenv("OLLAMA_MODEL", "llama3.1-gpu")
 
-_OR_API_KEY = os.getenv("OR_API") or os.getenv("OR_API_KEY") or os.getenv("OPENROUTER_API_KEY") or ""
-_OR_MODEL   = os.getenv("OR_MODEL") or os.getenv("OPENROUTER_MODEL") or "openai/gpt-4o-mini"
+_OR_API_KEY = (
+    os.getenv("OR_API") or 
+    os.getenv("OR_API_KEY") or 
+    os.getenv("OPENROUTER_API_KEY") or 
+    os.getenv("KIMI_API_KEY") or 
+    os.getenv("KIMI_MODEL") or 
+    ""
+)
+_OR_MODEL   = os.getenv("OR_MODEL") or os.getenv("OPENROUTER_MODEL") or "google/gemini-2.5-flash-lite"
 
 # Fallback check for Streamlit secrets if running inside Streamlit Cloud
 try:
@@ -81,24 +88,23 @@ OR_MODEL = _OR_MODEL
 
 _SCHEMA_DESCRIPTION = """\
 {
-  "company_name":   "<string>  — name of the VENDOR / issuing company",
-  "date":           "<string>  — document date in ISO-8601 (YYYY-MM-DD)",
-  "currency":       "<string>  — Currency of the document: 'EGP' or 'USD'",
-  "payment_terms":  "<string>  — payment policies/terms (e.g. '50% advance, 50% delivery', 'Deferred 45 days', 'Net 30')",
-  "delivery_time":  "<string>  — delivery lead time / availability (e.g. '1-2 weeks', 'Immediate stock')",
-  "offer_validity": "<string>  — offer validity period (e.g. '3 business days', '1 week')",
-  "total_tax":      <number>   — total monetary Tax or VAT amount for the whole document (omit if absent),
-  "vat_rate":       <number>   — tax percentage rate if stated (e.g. 14.0 for 14% VAT, omit if absent),
+  "company_name": "<string vendor name>",
+  "date": "<YYYY-MM-DD>",
+  "currency": "EGP or USD",
+  "payment_terms": "<string payment terms>",
+  "delivery_time": "<string delivery lead time>",
+  "offer_validity": "<string quote validity>",
+  "total_tax": <number or null>,
+  "vat_rate": <number or null>,
   "line_items": [
     {
-      "item_name":    "<string>  — REQUIRED short product/service name",
-      "sku":          "<string>  — part number / SKU / model code (omit if absent)",
-      "description":  "<string>  — longer spec text (omit if absent)",
-      "price":        <number>   — unit price, no currency symbol,
-      "quantity":     <number>   — number of units (default 1 if not stated),
-      "tax":          <number>   — monetary tax or VAT amount for this line (default 0 if absent),
-      "total_amount": <number>   — total post-tax price/amount for this line (omit if absent),
-      "confidence":   <number>   — integer 0-100: your confidence this is a real product/service line item
+      "item_name": "<string product description>",
+      "sku": "<string part number or null>",
+      "price": <number unit price>,
+      "quantity": <number qty default 1>,
+      "tax": <number tax amount default 0>,
+      "total_amount": <number total line amount or null>,
+      "confidence": <number 0-100>
     }
   ]
 }"""
@@ -166,12 +172,9 @@ _SYSTEM_PROMPT = textwrap.dedent(f"""\
 
 def _build_user_message(pages: list[PageResult], filename: str) -> str:
     """Combine PageResult objects into a single prompt message.
-
-    Page numbers come directly from PageResult.page_num so the LLM sees
-    the true document page number regardless of any filtering upstream.
-    OCR-failed pages are flagged in the prompt so the model can treat them
-    with lower confidence.
+    Compresses empty spaces and blank lines to minimize token usage.
     """
+    import re
     header = f"Document filename: {filename}\n\n"
     parts: list[str] = []
     for page in pages:
@@ -179,11 +182,19 @@ def _build_user_message(pages: list[PageResult], filename: str) -> str:
         if page.ocr_used:
             label += " | OCR"
         if page.ocr_failed:
-            label += " | EXTRACTION FAILED — text may be absent or garbled"
+            label += " | EXTRACTION FAILED"
         label += "]"
-        parts.append(f"{label}\n{page.text}")
-    body = "\n\n---PAGE BREAK---\n\n".join(parts)
-    return header + body
+        
+        # Clean excessive whitespace and empty lines from OCR
+        cleaned_text = re.sub(r'[ \t]+', ' ', page.text)
+        cleaned_text = re.sub(r'\n\s*\n+', '\n', cleaned_text).strip()
+        parts.append(f"{label}\n{cleaned_text}")
+        
+    body = "\n---PAGE BREAK---\n".join(parts)
+    full_msg = header + body
+    if len(full_msg) > 1500:
+        full_msg = full_msg[:1500] + "\n[TRUNCATED]"
+    return full_msg
 
 
 def _coerce_numeric(val: any) -> float:
@@ -228,12 +239,20 @@ def _clean_company_name(name: str, filename: str) -> str:
 
 
 def _call_openrouter_api(api_key: str, model_name: str, system_prompt: str, user_message: str) -> str:
-    """Send structured extraction request to OpenRouter API."""
+    """Send structured extraction request to Cloud API (OpenRouter or Dahlia Kimi)."""
     import httpx
     import re
-    url = "https://openrouter.ai/api/v1/chat/completions"
+    
+    clean_key = api_key.strip()
+    if clean_key.startswith("dahl_"):
+        url = "https://inference.dahl.global/v1/chat/completions"
+        if not model_name or "gpt-4o" in model_name or "gemini" in model_name:
+            model_name = "moonshotai/Kimi-K2.6"
+    else:
+        url = "https://openrouter.ai/api/v1/chat/completions"
+
     headers = {
-        "Authorization": f"Bearer {api_key.strip()}",
+        "Authorization": f"Bearer {clean_key}",
         "Content-Type": "application/json",
         "HTTP-Referer": "https://github.com/ShadyKishk77/asec-offers-parsing",
         "X-Title": "ASEC Document Intelligence",
@@ -246,17 +265,16 @@ def _call_openrouter_api(api_key: str, model_name: str, system_prompt: str, user
         ],
         "response_format": {"type": "json_object"},
         "temperature": 0,
-        "max_tokens": 500,
+        "max_tokens": 800,
     }
     response = httpx.post(url, headers=headers, json=payload, timeout=60.0)
     if response.status_code == 402:
         raise RuntimeError(
-            "OpenRouter API Credit Limit Reached (HTTP 402). "
-            "Your OpenRouter account requires additional credits (or fewer max_tokens). "
-            "Please top up at https://openrouter.ai/settings/credits or select a local model."
+            "API Credit Limit Reached (HTTP 402). "
+            "Your account requires additional credits. Please top up or select a local model."
         )
     elif response.status_code != 200:
-        raise RuntimeError(f"OpenRouter API error (HTTP {response.status_code}): {response.text}")
+        raise RuntimeError(f"Cloud API error (HTTP {response.status_code}): {response.text}")
     data = response.json()
     try:
         content = data["choices"][0]["message"]["content"]
