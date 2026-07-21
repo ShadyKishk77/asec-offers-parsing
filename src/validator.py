@@ -202,25 +202,31 @@ def validate_and_enrich(
             vat_rate_pct = doc.vat_rate if (doc.vat_rate and doc.vat_rate > 0) else 14.0
             vat_multiplier = 1.0 + (vat_rate_pct / 100.0)
 
-            # Check if terms/notes mention VAT, tax, 14%, or ضريبة
             has_vat_note = any(k in terms_text for k in ["vat", "tax", "ضريبة", "ض.ق.م", "14%", "14 %"])
-            is_inclusive = has_vat_note and any(k in terms_text for k in ["include", "includes", "شامل", "شاملة"])
-            is_exclusive = has_vat_note and any(k in terms_text for k in ["exclude", "excludes", "subject", "plus", "extra", "تضاف", "غير شامل"])
+            is_inclusive_term = has_vat_note and any(k in terms_text for k in ["include", "includes", "شامل", "شاملة"])
+            is_exclusive_term = has_vat_note and any(k in terms_text for k in ["exclude", "excludes", "subject", "plus", "extra", "تضاف", "غير شامل"])
 
-            # Check if stated price is an inclusive price that decomposes cleanly to a whole pre-tax unit price
+            # Check if stated total_amount matches pre-tax line_val (indicates inclusive price) or pre-tax * 1.14 (exclusive)
+            stated_total_matches_line_val = (
+                item.total_amount is not None and abs(item.total_amount - line_val) <= RECONCILIATION_TOLERANCE
+            )
+            stated_total_matches_post_tax = (
+                item.total_amount is not None and abs(item.total_amount - (line_val * vat_multiplier)) <= RECONCILIATION_TOLERANCE
+            )
+
             pre_tax_candidate = item.price / vat_multiplier
             is_clean_pre_tax = (abs(pre_tax_candidate - round(pre_tax_candidate)) <= 0.08)
 
-            if is_inclusive or (has_vat_note and is_clean_pre_tax):
-                # Stated price is post-tax inclusive -> Extract pre-tax Unit Price and VAT Tax amount
+            if is_inclusive_term or stated_total_matches_line_val or (has_vat_note and is_clean_pre_tax and not is_exclusive_term):
+                # Prices are inclusive -> Decompose stated price into pre-tax Unit Price and VAT Tax component
                 corrected_price = round(pre_tax_candidate, 2)
                 corrected_tax = round(line_val - (corrected_price * corrected_quantity), 2)
                 logger.info(
                     "[VAT Reconciliation] Decomposed %s%% inclusive price (%s -> Pre-tax Unit Price %s, VAT %s) for '%s' row %d",
                     vat_rate_pct, item.price, corrected_price, corrected_tax, source_file, idx
                 )
-            elif is_exclusive or has_vat_note or (item.total_amount is not None and abs(item.total_amount - (line_val * vat_multiplier)) <= RECONCILIATION_TOLERANCE):
-                # Prices exclude VAT -> Add VAT to pre-tax price
+            elif is_exclusive_term or stated_total_matches_post_tax:
+                # Prices exclude VAT -> Calculate exclusive VAT and add to pre-tax unit price
                 corrected_tax = round(line_val * (vat_rate_pct / 100.0), 2)
                 logger.info(
                     "[VAT Reconciliation] Calculated %s%% exclusive VAT (%s) for '%s' row %d based on terms note",
