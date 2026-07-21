@@ -128,7 +128,7 @@ _SYSTEM_PROMPT = textwrap.dedent(f"""\
       - description  : Additional specification or description details belonging to this line, if present.
       - price        : Unit price. Strip symbols.
       - quantity     : Default to 1 if not stated.
-      - tax          : Monetary amount of Tax or VAT for this line item. Note: 'VAT', 'V.A.T', 'Value Added Tax', 'Sales Tax', 'ضريبة القيمة المضافة', 'ضريبة', and 'ض.ق.م' are all TAX. Extract the monetary tax/VAT number here.
+      - tax          : Monetary amount of Tax or VAT for this line item. Extract ONLY if printed as a separate numerical column in the line item table. Do NOT calculate or hallucinate tax if it is not printed in the table. If no tax column exists, set "tax": 0.0 so the reconciliation engine can handle it dynamically.
       - total_amount : Total post-tax amount for this line.
 
     EXAMPLE EXTRACTION:

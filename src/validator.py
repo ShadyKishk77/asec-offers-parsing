@@ -119,11 +119,25 @@ def validate_and_enrich(
         logger.warning("'%s' has no line items after LLM extraction.", source_file)
 
     for idx, item in enumerate(doc.line_items, start=1):
+        # --- Pre-check Tax Profile Parameters ---
+        terms_text = (doc.payment_terms or "").lower()
+        has_vat_note = any(k in terms_text for k in ["vat", "tax", "ضريبة", "ض.ق.م", "14%", "14 %", "5%", "15%"])
+        is_inclusive_term = has_vat_note and any(k in terms_text for k in ["include", "includes", "شامل", "شاملة"])
+
+        corrected_tax = item.tax
+        # If terms explicitly state inclusive VAT and stated total == price * qty, zero out any LLM-calculated per-line tax
+        if is_inclusive_term and item.tax > 0 and item.total_amount is not None and abs(item.total_amount - (item.price * item.quantity)) <= RECONCILIATION_TOLERANCE:
+            logger.info(
+                "[Correction] Zeroed LLM-calculated per-line tax (%s) in '%s' row %d because terms specify inclusive VAT",
+                item.tax, source_file, idx
+            )
+            corrected_tax = 0.0
+
         # --- Mathematical Reconciliation and Auto-Correction ---
         corrected_quantity = item.quantity
         extra_issues = []
         if item.total_amount is not None and item.total_amount > 0 and item.price > 0:
-            expected_total_post_tax = (item.price * item.quantity) + (item.tax or 0.0)
+            expected_total_post_tax = (item.price * item.quantity) + (corrected_tax or 0.0)
             if abs(expected_total_post_tax - item.total_amount) > RECONCILIATION_TOLERANCE:
                 vat_pct = doc.vat_rate if (doc.vat_rate and doc.vat_rate > 0) else 14.0
                 vat_factor = 1.0 + (vat_pct / 100.0)
@@ -196,8 +210,8 @@ def validate_and_enrich(
             item.total_amount is not None and abs(item.total_amount - (line_val * vat_multiplier)) <= RECONCILIATION_TOLERANCE
         )
 
-        # Profile A: Explicit Tax extracted per-line (Table already has tax column)
-        if corrected_tax > 0.0:
+        # Profile A: Explicit Tax extracted per-line (Table already has tax column, unless terms specify inclusive VAT)
+        if corrected_tax > 0.0 and not is_inclusive_term:
             logger.info(
                 "[Tax Profile A] Retained explicit per-line tax (%s) for '%s' row %d",
                 corrected_tax, source_file, idx
