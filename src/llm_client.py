@@ -246,10 +246,16 @@ def _call_openrouter_api(api_key: str, model_name: str, system_prompt: str, user
         ],
         "response_format": {"type": "json_object"},
         "temperature": 0,
-        "max_tokens": 2500,
+        "max_tokens": 1000,
     }
     response = httpx.post(url, headers=headers, json=payload, timeout=60.0)
-    if response.status_code != 200:
+    if response.status_code == 402:
+        raise RuntimeError(
+            "OpenRouter API Credit Limit Reached (HTTP 402). "
+            "Your OpenRouter account requires additional credits (or fewer max_tokens). "
+            "Please top up at https://openrouter.ai/settings/credits or select a local model."
+        )
+    elif response.status_code != 200:
         raise RuntimeError(f"OpenRouter API error (HTTP {response.status_code}): {response.text}")
     data = response.json()
     try:
