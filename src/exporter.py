@@ -78,7 +78,6 @@ LINE_ITEMS_COLUMNS = [
     "price",
     "quantity",
     "tax",
-    "total_amount",
     "line_total",
     "needs_review",
     "review_reason",
@@ -98,7 +97,7 @@ SUMMARY_COLUMNS = [
 ]
 
 # Columns to format as currency (2 decimal places)
-CURRENCY_COLUMNS = {"price", "tax", "total_amount", "line_total", "total_cost"}
+CURRENCY_COLUMNS = {"price", "tax", "line_total", "total_cost"}
 
 
 # ---------------------------------------------------------------------------
