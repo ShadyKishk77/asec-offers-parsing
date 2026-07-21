@@ -171,11 +171,12 @@ def validate_and_enrich(
             )
             corrected_tax = 0.0
 
-        # --- Dynamic Tax & VAT Reconciliation Engine ---
-        # Strategy 1: Stated total_amount exceeds (price * quantity) -> difference is VAT/Tax
+        # Calculate total pre-tax subtotal across all items in document for proportional allocation
+        total_doc_subtotal = sum((it.price * it.quantity) for it in doc.line_items if it.price and it.quantity)
         line_val = item.price * corrected_quantity
         corrected_price = item.price
-        
+
+        # Strategy 1: Stated total_amount exceeds (price * quantity) -> difference is VAT/Tax
         if corrected_tax == 0.0 and item.total_amount is not None and item.total_amount > line_val:
             implied_vat = round(item.total_amount - line_val, 2)
             if implied_vat > 0:
@@ -186,13 +187,13 @@ def validate_and_enrich(
                     corrected_tax, source_file, idx, item.total_amount, line_val
                 )
 
-        # Strategy 2: Document-level total_tax allocation if per-line tax was omitted
+        # Strategy 2: Document-level total_tax proportional allocation across multi-item documents
         if corrected_tax == 0.0 and doc.total_tax is not None and doc.total_tax > 0:
-            num_items = len(doc.line_items) if doc.line_items else 1
-            corrected_tax = round(doc.total_tax / num_items, 2)
+            weight = (line_val / total_doc_subtotal) if total_doc_subtotal > 0 else (1.0 / max(1, len(doc.line_items)))
+            corrected_tax = round(doc.total_tax * weight, 2)
             logger.info(
-                "[VAT Reconciliation] Allocated overall document VAT (%s) -> per-line VAT (%s) for '%s' row %d",
-                doc.total_tax, corrected_tax, source_file, idx
+                "[VAT Reconciliation] Proportionally allocated document VAT (%s * %.4f) -> per-line VAT (%s) for '%s' row %d",
+                doc.total_tax, weight, corrected_tax, source_file, idx
             )
 
         # Strategy 3: Check Terms & Conditions / Document notes for 14% VAT (inclusive vs exclusive)
