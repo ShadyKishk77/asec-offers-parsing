@@ -316,36 +316,17 @@ with st.sidebar:
     st.markdown("## System Configuration")
     st.markdown("---")
     
-    from src.llm_client import _OLLAMA_HOST, _MODEL_NAME, _OR_API_KEY, _OR_MODEL
+    from src.llm_client import _OLLAMA_HOST, _MODEL_NAME
     
-    # API Key is read securely from environment / secrets in the background
-    ui_or_key = _OR_API_KEY
+    st.markdown("### AI Engine: Local Ollama")
+    st.markdown(f"**Model:** `{_MODEL_NAME}`")
+    st.markdown(f"**Host:** `{_OLLAMA_HOST}`")
     
-    available_or_models = [
-        "moonshotai/Kimi-K2.6",
-        "google/gemini-2.5-flash-lite",
-        "openai/gpt-4o-mini",
-        "deepseek/deepseek-chat",
-        "meta-llama/llama-3.3-70b-instruct",
-        "qwen/qwen-2.5-72b-instruct",
-    ]
+    st.info("Status: Local Engine (Ollama Active)")
     
-    default_idx = 0
-    if _OR_MODEL in available_or_models:
-        default_idx = available_or_models.index(_OR_MODEL)
-
-    ui_or_model = st.selectbox(
-        "AI Engine Model",
-        options=available_or_models,
-        index=default_idx,
-        help="Select the AI model engine for document processing.",
-    )
-    
-    active_or_key = (ui_or_key or "").strip()
-    if active_or_key:
-        st.info("Status: OpenRouter Cloud API (Connected)")
-    else:
-        st.info("Status: Local Engine (Ollama Active)")
+    # Placeholders for compatibility with pipeline call signature
+    ui_or_key = None
+    ui_or_model = None
     
     st.markdown("---")
     st.markdown("### System Features")

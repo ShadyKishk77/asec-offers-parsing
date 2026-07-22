@@ -321,45 +321,46 @@ def extract_document_data(
     failed_pages = sum(1 for p in pages if p.ocr_failed)
     user_message = _build_user_message(pages, filename)
 
-    active_or_key = (api_key_override or "").strip() or _OR_API_KEY
-
-    if active_or_key:
-        model_used = (model_override or "").strip() or _OR_MODEL
-        logger.info(
-            "LLM extraction: '%s' via OpenRouter/%s — %d page(s), %d OCR'd, %d OCR-failed",
-            filename, model_used, len(pages), ocr_pages, failed_pages,
+    # Default to local Ollama as the primary LLM engine
+    model_used = _MODEL_NAME
+    logger.info(
+        "LLM extraction: '%s' via Ollama/%s — %d page(s), %d OCR'd, %d OCR-failed",
+        filename, model_used, len(pages), ocr_pages, failed_pages,
+    )
+    try:
+        client = ollama.Client(host=_OLLAMA_HOST)
+        response = client.chat(
+            model=model_used,
+            messages=[
+                {"role": "system", "content": _SYSTEM_PROMPT},
+                {"role": "user",   "content": user_message},
+            ],
+            format="json",          # Ollama enforces JSON grammar-constrained output
+            options={
+                "temperature": 0,   # deterministic — no creative licence for data extraction
+            },
+            keep_alive=-1,          # keep model loaded in VRAM permanently
         )
-        try:
-            raw_json = _call_openrouter_api(active_or_key, model_used, _SYSTEM_PROMPT, user_message)
-        except Exception as exc:
-            raise RuntimeError(
-                f"OpenRouter API call failed for '{filename}': {exc}"
-            ) from exc
-    else:
-        model_used = _MODEL_NAME
-        logger.info(
-            "LLM extraction: '%s' via Ollama/%s — %d page(s), %d OCR'd, %d OCR-failed",
-            filename, model_used, len(pages), ocr_pages, failed_pages,
-        )
-        try:
-            client = ollama.Client(host=_OLLAMA_HOST)
-            response = client.chat(
-                model=model_used,
-                messages=[
-                    {"role": "system", "content": _SYSTEM_PROMPT},
-                    {"role": "user",   "content": user_message},
-                ],
-                format="json",          # Ollama enforces JSON grammar-constrained output
-                options={
-                    "temperature": 0,   # deterministic — no creative licence for data extraction
-                },
-                keep_alive=-1,          # keep model loaded in VRAM permanently
+        raw_json: str = response.message.content
+    except Exception as ollama_exc:
+        # Fallback to OpenRouter only if api key is available
+        active_or_key = (api_key_override or "").strip() or _OR_API_KEY
+        if active_or_key:
+            model_used = (model_override or "").strip() or _OR_MODEL
+            logger.warning(
+                "Local Ollama failed (%s) — falling back to OpenRouter/%s",
+                ollama_exc, model_used
             )
-            raw_json: str = response.message.content
-        except Exception as exc:
+            try:
+                raw_json = _call_openrouter_api(active_or_key, model_used, _SYSTEM_PROMPT, user_message)
+            except Exception as exc:
+                raise RuntimeError(
+                    f"OpenRouter API call fallback failed for '{filename}': {exc}"
+                ) from exc
+        else:
             raise RuntimeError(
-                f"Ollama API call failed for '{filename}': {exc}"
-            ) from exc
+                f"Ollama API call failed for '{filename}': {ollama_exc}. No OpenRouter API key configured for fallback."
+            ) from ollama_exc
 
     # --- Parse and validate with Pydantic ---
     try:
